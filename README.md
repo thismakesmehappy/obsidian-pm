@@ -102,15 +102,32 @@ Each task is a `.md` file in your vault supporting:
 
 1. Install the [BRAT plugin](https://github.com/TfTHacker/obsidian42-brat) from the community store.
 2. Open BRAT settings > **Add Beta Plugin**.
-3. Enter: `https://github.com/StepanKropachev/obsidian-pm`
+3. Enter: `https://github.com/thismakesmehappy/obsidian-pm`
 4. Enable the plugin in **Settings > Community plugins**.
 
 ### Manual
 
 1. Download `main.js`, `manifest.json`, and `styles.css` from the [latest release](../../releases/latest).
-2. Create a folder: `<vault>/.obsidian/plugins/project-manager/`
+2. Create a folder: `<vault>/.obsidian/plugins/project-manager-fork/`
 3. Copy the three files into that folder.
 4. Reload Obsidian and enable the plugin under **Settings > Community plugins**.
+
+## Fork release workflow
+
+This fork keeps the upstream GitHub Actions release pipeline. For future BRAT-compatible releases, use:
+
+1. Open **Actions** in `thismakesmehappy/obsidian-pm`.
+2. Run **Bump Version**.
+3. Enter a semver version such as `1.3.4` or `1.3.4-vault.1`.
+4. The workflow will:
+   - update `manifest.json`, `package.json`, and `versions.json`
+   - create and push the Git tag
+   - build the plugin
+   - publish a GitHub release with `main.js`, `manifest.json`, and `styles.css`
+
+BRAT can then install or update directly from:
+
+- `thismakesmehappy/obsidian-pm`
 
 ## Quick start
 
