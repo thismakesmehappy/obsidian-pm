@@ -34,7 +34,7 @@ export function renderBulkActionBar(opts: BulkActionBarOpts): void {
   const { ctx, onAction } = opts
   const existing = ctx.container.querySelector('.pm-bulk-bar')
 
-  if (ctx.state.selectedTaskIds.size === 0) {
+  if (ctx.project.virtual || ctx.state.selectedTaskIds.size === 0) {
     existing?.remove()
     return
   }

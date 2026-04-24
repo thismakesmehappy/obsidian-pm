@@ -7,12 +7,13 @@ import { TableView } from './table/TableView'
 import type { TableViewState } from './table/TableView'
 import { GanttView } from './gantt/GanttView'
 import { KanbanView } from './KanbanView'
-import { openProjectModal, openTaskModal } from '../ui/ModalFactory'
+import { openProjectModal, openTaskModal, openProjectPicker } from '../ui/ModalFactory'
 
 export const PM_PROJECT_VIEW_TYPE = 'pm-project'
 
 interface ProjectViewState {
-  filePath: string
+  filePath?: string
+  virtualProjectId?: string
   [key: string]: unknown
 }
 
@@ -20,12 +21,15 @@ export class ProjectView extends ItemView {
   plugin: PMPlugin
   project: Project | null = null
   filePath = ''
+  virtualProjectId: string | null = null
   currentView: ViewMode
   private subview: SubView | null = null
   private savedTableViewState: TableViewState | null = null
   private toolbarEl!: HTMLElement
   private bodyEl!: HTMLElement
   private titleEl2!: HTMLElement
+  private sourceProjects: Project[] = []
+  private taskProjectMap = new Map<string, Project>()
   private keydownHandler: ((e: KeyboardEvent) => void) | null = null
   private fileModifyRef: EventRef | null = null
   private reloadDebounceTimer: number | null = null
@@ -48,15 +52,21 @@ export class ProjectView extends ItemView {
   }
 
   async setState(state: ProjectViewState, result: unknown): Promise<void> {
-    if (state.filePath && state.filePath !== this.filePath) {
-      this.filePath = state.filePath
+    const nextFilePath = state.filePath ?? ''
+    const nextVirtualProjectId = state.virtualProjectId ?? null
+    if (nextFilePath !== this.filePath || nextVirtualProjectId !== this.virtualProjectId) {
+      this.filePath = nextFilePath
+      this.virtualProjectId = nextVirtualProjectId
       await this.loadProject()
     }
     await super.setState(state, result as import('obsidian').ViewStateResult)
   }
 
   getState(): ProjectViewState {
-    return { filePath: this.filePath }
+    return {
+      filePath: this.filePath || undefined,
+      virtualProjectId: this.virtualProjectId ?? undefined
+    }
   }
 
   async onOpen(): Promise<void> {
@@ -67,7 +77,7 @@ export class ProjectView extends ItemView {
     this.toolbarEl = root.createDiv('pm-toolbar')
     this.bodyEl = root.createDiv('pm-content')
 
-    if (this.filePath) await this.loadProject()
+    if (this.filePath || this.virtualProjectId) await this.loadProject()
 
     this.keydownHandler = (e: KeyboardEvent) => {
       this.subview?.handleKeyDown?.(e)
@@ -78,7 +88,11 @@ export class ProjectView extends ItemView {
     }
 
     const reloadIfRelevant = (filePath: string) => {
-      if (!this.project || !this.filePath) return false
+      if (!this.project) return false
+      if (this.virtualProjectId === '__all_tasks__') {
+        return filePath.startsWith(this.plugin.settings.projectsFolder + '/')
+      }
+      if (!this.filePath) return false
       const taskFolder = this.filePath.replace(/\.md$/, '_tasks')
       return filePath.startsWith(taskFolder) || filePath === this.filePath
     }
@@ -122,6 +136,20 @@ export class ProjectView extends ItemView {
   }
 
   private async loadProject(): Promise<void> {
+    if (this.virtualProjectId === '__all_tasks__') {
+      const { project, sourceProjects, taskProjectMap } = await this.plugin.store.loadAllTasksProject(
+        this.plugin.settings.projectsFolder
+      )
+      this.project = project
+      this.sourceProjects = sourceProjects
+      this.taskProjectMap = taskProjectMap
+      this.currentView = 'table'
+      ;(this.leaf as WorkspaceLeaf & { updateHeader?: () => void }).updateHeader?.()
+      this.renderProjectToolbar()
+      this.renderCurrentView()
+      return
+    }
+
     const file = this.app.vault.getAbstractFileByPath(this.filePath)
     if (!(file instanceof TFile)) {
       this.renderMissingProject()
@@ -131,6 +159,11 @@ export class ProjectView extends ItemView {
     if (!this.project) {
       this.renderMissingProject()
       return
+    }
+    this.sourceProjects = await this.plugin.store.loadAllProjects(this.plugin.settings.projectsFolder)
+    this.taskProjectMap = new Map()
+    for (const task of this.project.tasks) {
+      this.indexTaskProject(task, this.project)
     }
     ;(this.leaf as WorkspaceLeaf & { updateHeader?: () => void }).updateHeader?.()
     this.renderProjectToolbar()
@@ -150,12 +183,22 @@ export class ProjectView extends ItemView {
     this.toolbarEl.empty()
 
     const left = this.toolbarEl.createDiv('pm-toolbar-left')
+    const navWrap = left.createDiv('pm-project-nav')
+    const crumbs = navWrap.createDiv('pm-project-breadcrumbs')
+    const dashboardLink = crumbs.createEl('button', { text: 'Projects', cls: 'pm-breadcrumb-btn' })
+    dashboardLink.addEventListener('click', () => {
+      void this.plugin.router.openDashboard()
+    })
+    crumbs.createEl('span', { text: '/', cls: 'pm-breadcrumb-sep' })
+    crumbs.createEl('span', { text: this.project.title, cls: 'pm-breadcrumb-current' })
+
     const iconEl = left.createEl('span', {
       text: this.project.icon,
       cls: 'pm-toolbar-icon',
       attr: { 'aria-label': 'Edit project', role: 'button', tabindex: '0' }
     })
     iconEl.addEventListener('click', () => {
+      if (this.project?.virtual) return
       openProjectModal(this.plugin, {
         project: this.project,
         onSave: (updated) => {
@@ -166,22 +209,24 @@ export class ProjectView extends ItemView {
     })
 
     this.titleEl2 = left.createEl('h2', { text: this.project.title, cls: 'pm-toolbar-title' })
-    this.titleEl2.contentEditable = 'true'
+    this.titleEl2.contentEditable = this.project.virtual ? 'false' : 'true'
     this.titleEl2.addEventListener(
       'blur',
       safeAsync(async () => {
-        if (!this.project) return
+        if (!this.project || this.project.virtual) return
         this.project.title = this.titleEl2.textContent?.trim() ?? this.project.title
         await this.plugin.store.saveProject(this.project)
       })
     )
 
     const switcher = this.toolbarEl.createDiv('pm-view-switcher')
-    const views: { mode: ViewMode; icon: string; label: string }[] = [
-      { mode: 'table', icon: '≡', label: 'Table' },
-      { mode: 'gantt', icon: '▬', label: 'Gantt' },
-      { mode: 'kanban', icon: '⊞', label: 'Board' }
-    ]
+    const views: { mode: ViewMode; icon: string; label: string }[] = this.project.virtual
+      ? [{ mode: 'table', icon: '≡', label: 'Table' }]
+      : [
+          { mode: 'table', icon: '≡', label: 'Table' },
+          { mode: 'gantt', icon: '▬', label: 'Gantt' },
+          { mode: 'kanban', icon: '⊞', label: 'Board' }
+        ]
     for (const v of views) {
       const btn = switcher.createEl('button', {
         cls: 'pm-view-btn',
@@ -199,9 +244,36 @@ export class ProjectView extends ItemView {
     }
 
     const right = this.toolbarEl.createDiv('pm-toolbar-right')
+    const projectSelect = right.createEl('select', { cls: 'pm-project-switcher' })
+    projectSelect.createEl('option', { value: '__all_tasks__', text: 'All Tasks' })
+    for (const sourceProject of this.sourceProjects.length ? this.sourceProjects : [this.project]) {
+      projectSelect.createEl('option', { value: sourceProject.id, text: sourceProject.title })
+    }
+    projectSelect.value = this.project.virtual ? '__all_tasks__' : this.project.id
+    projectSelect.addEventListener('change', () => {
+      if (projectSelect.value === '__all_tasks__') {
+        void this.plugin.router.openAllTasks()
+        return
+      }
+      const target = this.sourceProjects.find((candidate) => candidate.id === projectSelect.value)
+      if (target) {
+        void this.plugin.router.openProjectByPath(target.filePath)
+      }
+    })
+
     const addBtn = right.createEl('button', { text: '+ add task', cls: 'pm-btn pm-btn-primary' })
     addBtn.addEventListener('click', () => {
       if (!this.project) return
+      if (this.project.virtual) {
+        openProjectPicker(this.plugin, this.sourceProjects, (project) => {
+          openTaskModal(this.plugin, project, {
+            onSave: async () => {
+              await this.refreshProject()
+            }
+          })
+        })
+        return
+      }
       openTaskModal(this.plugin, this.project, {
         onSave: async () => {
           await this.refreshProject()
@@ -209,7 +281,19 @@ export class ProjectView extends ItemView {
       })
     })
 
-    if (this.currentView === 'gantt') {
+    if (this.project.virtual) {
+      const milestoneBtn = right.createEl('button', { text: '+ milestone', cls: 'pm-btn pm-btn-ghost' })
+      milestoneBtn.addEventListener('click', () => {
+        openProjectPicker(this.plugin, this.sourceProjects, (project) => {
+          openTaskModal(this.plugin, project, {
+            defaults: { type: 'milestone' },
+            onSave: async () => {
+              await this.refreshProject()
+            }
+          })
+        })
+      })
+    } else if (this.currentView === 'gantt') {
       const milestoneBtn = right.createEl('button', { text: '+ milestone', cls: 'pm-btn pm-btn-ghost' })
       milestoneBtn.addEventListener('click', () => {
         if (!this.project) return
@@ -228,6 +312,7 @@ export class ProjectView extends ItemView {
     })
     settingsBtn.createEl('span', { text: '⚙' })
     settingsBtn.addEventListener('click', () => {
+      if (!this.project || this.project.virtual) return
       openProjectModal(this.plugin, {
         project: this.project,
         onSave: (updated) => {
@@ -269,7 +354,15 @@ export class ProjectView extends ItemView {
           this.project,
           this.plugin,
           () => this.refreshProject(),
-          this.savedTableViewState ?? undefined
+          this.savedTableViewState ?? undefined,
+          {
+            resolveProjectForTask: (task) => this.resolveProjectForTask(task.id),
+            availableProjects: this.sourceProjects.length ? this.sourceProjects : this.project ? [this.project] : [],
+            openProjectById: (projectId) => {
+              const target = this.sourceProjects.find((project) => project.id === projectId)
+              if (target) void this.plugin.router.openProjectByPath(target.filePath)
+            }
+          }
         )
         break
       case 'gantt': {
@@ -292,6 +385,10 @@ export class ProjectView extends ItemView {
   }
 
   async refreshProject(): Promise<void> {
+    if (this.virtualProjectId === '__all_tasks__') {
+      await this.loadProject()
+      return
+    }
     if (!this.filePath) return
     if (this.reloadDebounceTimer !== null) {
       activeWindow.clearTimeout(this.reloadDebounceTimer)
@@ -300,7 +397,23 @@ export class ProjectView extends ItemView {
     const file = this.app.vault.getAbstractFileByPath(this.filePath)
     if (file instanceof TFile) {
       this.project = await this.plugin.store.loadProject(file)
+      this.sourceProjects = this.project ? await this.plugin.store.loadAllProjects(this.plugin.settings.projectsFolder) : []
+      this.taskProjectMap = new Map()
+      if (this.project) {
+        for (const task of this.project.tasks) {
+          this.indexTaskProject(task, this.project)
+        }
+      }
     }
     this.renderCurrentView()
+  }
+
+  private resolveProjectForTask(taskId: string): Project {
+    return this.taskProjectMap.get(taskId) ?? this.project!
+  }
+
+  private indexTaskProject(task: Project['tasks'][number], project: Project): void {
+    this.taskProjectMap.set(task.id, project)
+    for (const subtask of task.subtasks) this.indexTaskProject(subtask, project)
   }
 }

@@ -1,7 +1,8 @@
 import { Notice } from 'obsidian'
 import { confirmDialog } from '../../ui/ModalFactory'
+import { openProjectPicker, openTaskModal } from '../../ui/ModalFactory'
 import type PMPlugin from '../../main'
-import type { Project, FilterState } from '../../types'
+import type { Project, FilterState, Task } from '../../types'
 import { makeDefaultFilter } from '../../types'
 import { findTask } from '../../store/TaskTreeOps'
 import { safeAsync } from '../../utils'
@@ -24,6 +25,12 @@ export interface TableViewState {
   activeSavedViewId: string | null
 }
 
+export interface TableViewOptions {
+  resolveProjectForTask?: (task: Task) => Project
+  availableProjects?: Project[]
+  openProjectById?: (projectId: string) => void
+}
+
 export class TableView implements SubView {
   private state: TableState
   private activeSavedViewId: string | null
@@ -33,7 +40,8 @@ export class TableView implements SubView {
     private project: Project,
     private plugin: PMPlugin,
     private onRefresh: () => Promise<void>,
-    initialState?: TableViewState
+    initialState?: TableViewState,
+    private options: TableViewOptions = {}
   ) {
     this.state = {
       sortKey: initialState?.sortKey ?? 'status',
@@ -61,7 +69,9 @@ export class TableView implements SubView {
     this.container.empty()
     this.container.addClass('pm-table-view')
 
-    renderQuickAddBar(this.container, this.project, this.plugin, this.onRefresh)
+    if (!this.project.virtual) {
+      renderQuickAddBar(this.container, this.project, this.plugin, this.onRefresh)
+    }
 
     renderSavedViewsBar(this.container, {
       project: this.project,
@@ -120,6 +130,7 @@ export class TableView implements SubView {
   }
 
   async handleBulkAction(action: BulkAction): Promise<void> {
+    if (this.project.virtual) return
     const ids = [...this.state.selectedTaskIds]
     if (!ids.length) return
 
@@ -212,6 +223,11 @@ export class TableView implements SubView {
       container: this.container,
       project: this.project,
       plugin: this.plugin,
+      showProjectColumn: this.project.virtual === true,
+      resolveProjectForTask: (task: Task) => this.options.resolveProjectForTask?.(task) ?? this.project,
+      availableProjects: this.options.availableProjects ?? [this.project],
+      openProjectById: (projectId: string) => this.options.openProjectById?.(projectId),
+      openCreateTask: () => this.openCreateTaskModal(),
       state: this.state,
       onRefresh: this.onRefresh,
       onSelectionChange: () => {
@@ -220,5 +236,20 @@ export class TableView implements SubView {
       },
       onBulkDelete: safeAsync(() => this.handleBulkAction({ type: 'delete' }))
     }
+  }
+
+  private openCreateTaskModal(): void {
+    if (!this.project.virtual) return
+    if (!(this.options.availableProjects ?? []).length) {
+      new Notice('No projects available.')
+      return
+    }
+    openProjectPicker(this.plugin, this.options.availableProjects ?? [], (project) => {
+      openTaskModal(this.plugin, project, {
+        onSave: async () => {
+          await this.onRefresh()
+        }
+      })
+    })
   }
 }

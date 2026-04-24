@@ -151,6 +151,8 @@ describe('project round-trip', () => {
         priorities: ['high', 'critical'],
         assignees: ['Alice'],
         tags: ['design'],
+        projects: [],
+        sprints: [],
         dueDateFilter: 'overdue',
         showArchived: false
       },
@@ -163,11 +165,11 @@ describe('project round-trip', () => {
     expect(project.savedViews).toEqual([view])
   })
 
-  it('records taskIds in the frontmatter', () => {
+  it('does not require taskIds in the frontmatter', () => {
     const p = makeProject('P', 'Projects/P.md')
     p.tasks = [makeTask({ id: 't-1' }), makeTask({ id: 't-2' })]
     const { frontmatter } = roundTripProject(p)
-    expect(frontmatter.taskIds).toEqual(['t-1', 't-2'])
+    expect(frontmatter.taskIds).toBeUndefined()
   })
 
   it('falls back to the file basename when title is missing', () => {

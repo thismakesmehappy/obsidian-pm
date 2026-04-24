@@ -107,7 +107,7 @@ export function renderExpandCell(row: HTMLElement, task: Task, ctx: TableContext
     btn.addEventListener(
       'click',
       safeAsync(async () => {
-        await ctx.plugin.store.updateTask(ctx.project, task.id, { collapsed: !task.collapsed })
+        await ctx.plugin.store.updateTask(ctx.resolveProjectForTask(task), task.id, { collapsed: !task.collapsed })
         await ctx.onRefresh()
       })
     )
@@ -115,12 +115,13 @@ export function renderExpandCell(row: HTMLElement, task: Task, ctx: TableContext
 }
 
 export function renderTitleCell(row: HTMLElement, task: Task, depth: number, ctx: TableContext): void {
+  const ownerProject = ctx.resolveProjectForTask(task)
   const cell = row.createEl('td', { cls: 'pm-table-cell-title' })
   cell.style.paddingLeft = `${depth * 20 + 8}px`
 
   const titleSpan = cell.createEl('span', { text: task.title, cls: 'pm-task-title-text' })
   titleSpan.addEventListener('click', () => {
-    openTaskModal(ctx.plugin, ctx.project, {
+    openTaskModal(ctx.plugin, ownerProject, {
       task,
       onSave: async () => {
         await ctx.onRefresh()
@@ -135,7 +136,7 @@ export function renderTitleCell(row: HTMLElement, task: Task, depth: number, ctx
       inputType: 'text',
       value: task.title,
       onSave: async (val) => {
-        await ctx.plugin.store.updateTask(ctx.project, task.id, { title: val })
+        await ctx.plugin.store.updateTask(ownerProject, task.id, { title: val })
         await ctx.onRefresh()
       }
     })
@@ -148,7 +149,7 @@ export function renderTitleCell(row: HTMLElement, task: Task, depth: number, ctx
   addSubtaskBtn.setText('+')
   addSubtaskBtn.addEventListener('click', (e) => {
     e.stopPropagation()
-    openTaskModal(ctx.plugin, ctx.project, {
+    openTaskModal(ctx.plugin, ownerProject, {
       parentId: task.id,
       onSave: async () => {
         await ctx.onRefresh()
@@ -182,6 +183,7 @@ export function renderTitleCell(row: HTMLElement, task: Task, depth: number, ctx
 }
 
 export function renderStatusCell(row: HTMLElement, task: Task, ctx: TableContext): void {
+  const ownerProject = ctx.resolveProjectForTask(task)
   const cell = row.createEl('td', { cls: 'pm-table-cell' })
   const statusConfig = getStatusConfig(ctx.plugin.settings.statuses, task.status)
   if (statusConfig) {
@@ -190,7 +192,7 @@ export function renderStatusCell(row: HTMLElement, task: Task, ctx: TableContext
       task,
       ctx.plugin.settings.statuses,
       safeAsync(async (status) => {
-        await ctx.plugin.store.updateTask(ctx.project, task.id, { status })
+        await ctx.plugin.store.updateTask(ownerProject, task.id, { status })
         await ctx.onRefresh()
       })
     )
@@ -198,6 +200,7 @@ export function renderStatusCell(row: HTMLElement, task: Task, ctx: TableContext
 }
 
 export function renderPriorityCell(row: HTMLElement, task: Task, ctx: TableContext): void {
+  const ownerProject = ctx.resolveProjectForTask(task)
   const cell = row.createEl('td', { cls: 'pm-table-cell' })
   const priorityConfig = getPriorityConfig(ctx.plugin.settings.priorities, task.priority)
   if (priorityConfig) {
@@ -206,7 +209,7 @@ export function renderPriorityCell(row: HTMLElement, task: Task, ctx: TableConte
       task,
       ctx.plugin.settings.priorities,
       safeAsync(async (priority) => {
-        await ctx.plugin.store.updateTask(ctx.project, task.id, { priority })
+        await ctx.plugin.store.updateTask(ownerProject, task.id, { priority })
         await ctx.onRefresh()
       })
     )
@@ -230,14 +233,15 @@ export function renderAssigneesCell(row: HTMLElement, task: Task): void {
 }
 
 function startDueDateEdit(cell: HTMLElement, display: HTMLElement, task: Task, ctx: TableContext): void {
+  const ownerProject = ctx.resolveProjectForTask(task)
   makeInlineEdit({
     container: cell,
     display,
     inputType: 'date',
     value: task.due,
     onSave: async (val) => {
-      await ctx.plugin.store.updateTask(ctx.project, task.id, { due: val })
-      await ctx.plugin.store.scheduleAfterChange(ctx.project, task.id, ctx.plugin.settings.statuses)
+      await ctx.plugin.store.updateTask(ownerProject, task.id, { due: val })
+      await ctx.plugin.store.scheduleAfterChange(ownerProject, task.id, ctx.plugin.settings.statuses)
       await ctx.onRefresh()
     }
   })
@@ -294,6 +298,7 @@ export function renderTimeCell(row: HTMLElement, task: Task): void {
 }
 
 export function renderActionsCell(row: HTMLElement, task: Task, ctx: TableContext): void {
+  const ownerProject = ctx.resolveProjectForTask(task)
   const cell = row.createEl('td', { cls: 'pm-table-cell pm-table-cell-actions' })
   const btn = cell.createEl('button', {
     text: '\u22ef',
@@ -302,8 +307,20 @@ export function renderActionsCell(row: HTMLElement, task: Task, ctx: TableContex
   })
   btn.addEventListener('click', (e) => {
     const menu = new Menu()
-    buildTaskContextMenu(menu, task, { plugin: ctx.plugin, project: ctx.project, onRefresh: ctx.onRefresh })
+    buildTaskContextMenu(menu, task, { plugin: ctx.plugin, project: ownerProject, onRefresh: ctx.onRefresh })
     menu.showAtMouseEvent(e)
+  })
+}
+
+export function renderProjectCell(row: HTMLElement, task: Task, ctx: TableContext): void {
+  const cell = row.createEl('td', { cls: 'pm-table-cell' })
+  const projectBtn = cell.createEl('button', {
+    text: task.projectTitle ?? task.projectId,
+    cls: 'pm-linklike-btn'
+  })
+  projectBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    ctx.openProjectById(task.projectId)
   })
 }
 

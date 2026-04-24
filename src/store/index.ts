@@ -14,7 +14,9 @@ export {
   filterArchived,
   filterDone,
   collectAllAssignees,
-  collectAllTags
+  collectAllTags,
+  collectAllSprints,
+  collectAllProjects
 } from './TaskTreeOps'
 export type { FlatTask } from './TaskTreeOps'
 export { computeSchedule, wouldCreateCycle } from './Scheduler'

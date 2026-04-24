@@ -11,6 +11,8 @@ export function isFilterActive(filter: FilterState): boolean {
     filter.priorities.length ||
     filter.assignees.length ||
     filter.tags.length ||
+    filter.projects.length ||
+    filter.sprints.length ||
     filter.dueDateFilter !== 'any'
   )
 }
@@ -25,8 +27,10 @@ export function applyFilters(flat: FlatTask[], filter: FilterState, statuses: St
           task.title.toLowerCase().includes(q) ||
           task.status.includes(q) ||
           task.priority.includes(q) ||
+          task.projectTitle?.toLowerCase().includes(q) ||
           task.assignees.some((a) => a.toLowerCase().includes(q)) ||
-          task.tags.some((t) => t.toLowerCase().includes(q))
+          task.tags.some((t) => t.toLowerCase().includes(q)) ||
+          task.sprints.some((s) => s.toLowerCase().includes(q))
         )
       ) {
         return false
@@ -36,6 +40,8 @@ export function applyFilters(flat: FlatTask[], filter: FilterState, statuses: St
     if (filter.priorities.length && !filter.priorities.includes(task.priority)) return false
     if (filter.assignees.length && !task.assignees.some((a) => filter.assignees.includes(a))) return false
     if (filter.tags.length && !task.tags.some((t) => filter.tags.includes(t))) return false
+    if (filter.projects.length && !filter.projects.includes(task.projectId)) return false
+    if (filter.sprints.length && !task.sprints.some((sprint) => filter.sprints.includes(sprint))) return false
     if (filter.dueDateFilter !== 'any') {
       if (!matchDueDateFilter(task, filter.dueDateFilter, statuses)) return false
     }
@@ -75,6 +81,8 @@ export function compareTask(a: Task, b: Task, state: TableState, statuses: Statu
       return dir * (statusSortOrder(a.status, statuses) - statusSortOrder(b.status, statuses))
     case 'priority':
       return dir * priorityOrder(a.priority) - dir * priorityOrder(b.priority)
+    case 'project':
+      return dir * (a.projectTitle ?? '').localeCompare(b.projectTitle ?? '')
     case 'due':
       return dir * (a.due || 'zzz').localeCompare(b.due || 'zzz')
     case 'assignees':

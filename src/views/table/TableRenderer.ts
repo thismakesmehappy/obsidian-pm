@@ -6,7 +6,7 @@ import { focusQuickAdd } from './QuickAddBar'
 import { applyFilters, isFilterActive, compareTask } from './TableFilters'
 import { renderTaskRow, updateSelectedRow, updateSelectAllCheckbox } from './TableRow'
 
-type SortKey = 'title' | 'status' | 'priority' | 'due' | 'assignees' | 'progress'
+type SortKey = 'title' | 'project' | 'status' | 'priority' | 'due' | 'assignees' | 'progress'
 type SortDir = 'asc' | 'desc'
 
 export type { SortKey, SortDir }
@@ -25,6 +25,11 @@ export interface TableContext {
   container: HTMLElement
   project: Project
   plugin: PMPlugin
+  showProjectColumn: boolean
+  resolveProjectForTask: (task: Project['tasks'][number]) => Project
+  availableProjects: Project[]
+  openProjectById: (projectId: string) => void
+  openCreateTask: () => void
   state: TableState
   onRefresh: () => Promise<void>
   onSelectionChange: () => void
@@ -56,6 +61,7 @@ export function renderTable(ctx: TableContext): void {
   const cols: { key: SortKey | null; label: string; width?: string }[] = [
     { key: null, label: '', width: '32px' },
     { key: 'title', label: 'Task', width: 'auto' },
+    ...(ctx.showProjectColumn ? [{ key: 'project' as SortKey, label: 'Project', width: '150px' }] : []),
     { key: 'status', label: 'Status', width: '130px' },
     { key: 'priority', label: 'Priority', width: '110px' },
     { key: 'assignees', label: 'Assignees', width: '140px' },
@@ -147,9 +153,14 @@ function fillTableBody(ctx: TableContext): void {
 
   // "Add task" row
   const addRow = tbody.createEl('tr', { cls: 'pm-table-add-row' })
-  const addCell = addRow.createEl('td', { attr: { colspan: String(10 + ctx.project.customFields.length) } })
+  const columnCount = tbody.closest('table')?.querySelectorAll('thead th').length ?? 1
+  const addCell = addRow.createEl('td', { attr: { colspan: String(columnCount) } })
   const addBtn = addCell.createEl('button', { text: '+ add task', cls: 'pm-table-add-btn' })
   addBtn.addEventListener('click', () => {
+    if (ctx.project.virtual) {
+      ctx.openCreateTask()
+      return
+    }
     openTaskModal(ctx.plugin, ctx.project, { onSave: () => ctx.onRefresh() })
   })
 }
@@ -220,7 +231,8 @@ export function handleTableKeyDown(e: KeyboardEvent, ctx: TableContext): void {
       e.preventDefault()
       const task = findTask(ctx.project.tasks, ctx.state.selectedTaskId)
       if (task) {
-        openTaskModal(ctx.plugin, ctx.project, {
+        const ownerProject = ctx.resolveProjectForTask(task)
+        openTaskModal(ctx.plugin, ownerProject, {
           task,
           onSave: async () => {
             await ctx.onRefresh()
@@ -232,6 +244,10 @@ export function handleTableKeyDown(e: KeyboardEvent, ctx: TableContext): void {
     case 'n':
     case 'N': {
       e.preventDefault()
+      if (ctx.project.virtual) {
+        ctx.openCreateTask()
+        break
+      }
       focusQuickAdd(ctx.container)
       break
     }
@@ -260,6 +276,8 @@ export function getVisibleTaskIds(state: TableState): string[] {
 }
 
 async function deleteTask(id: string, ctx: TableContext): Promise<void> {
-  await ctx.plugin.store.deleteTask(ctx.project, id)
+  const task = findTask(ctx.project.tasks, id)
+  if (!task) return
+  await ctx.plugin.store.deleteTask(ctx.resolveProjectForTask(task), id)
   await ctx.onRefresh()
 }

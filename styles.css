@@ -53,6 +53,28 @@
 
 .pm-toolbar-left  { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
 .pm-toolbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.pm-project-nav { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.pm-project-breadcrumbs { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--pm-text-muted); }
+.pm-breadcrumb-btn,
+.pm-linklike-btn {
+  border: none;
+  background: transparent;
+  color: var(--pm-accent);
+  padding: 0;
+  cursor: pointer;
+}
+.pm-breadcrumb-btn:hover,
+.pm-linklike-btn:hover { text-decoration: underline; }
+.pm-breadcrumb-current { color: var(--pm-text-muted); }
+.pm-breadcrumb-sep { color: var(--pm-text-muted); }
+.pm-project-switcher {
+  max-width: 220px;
+  padding: 6px 10px;
+  border: 1px solid var(--pm-border);
+  border-radius: var(--pm-radius-sm);
+  background: var(--pm-bg2);
+  color: var(--pm-text);
+}
 
 .pm-toolbar-icon {
   font-size: 24px;
@@ -2116,4 +2138,3 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
   font-size: 1.125rem;
   color: var(--text-normal, #2b3438);
 }
-

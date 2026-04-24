@@ -2,7 +2,7 @@ import { Menu } from 'obsidian'
 import type PMPlugin from '../../main'
 import type { Project, FilterState, TaskPriority, DueDateFilter } from '../../types'
 import { makeDefaultFilter } from '../../types'
-import { collectAllAssignees, collectAllTags } from '../../store'
+import { collectAllAssignees, collectAllProjects, collectAllSprints, collectAllTags } from '../../store'
 import { renderFilterDropdown } from '../../ui/FilterDropdown'
 import { formatBadgeText } from '../../utils'
 
@@ -86,6 +86,34 @@ export function renderFilterBar(container: HTMLElement, ctx: FilterBarContext): 
     )
   }
 
+  const allProjects = collectAllProjects(ctx.project.tasks)
+  if (allProjects.length > 1) {
+    renderFilterDropdown(
+      bar,
+      'Project',
+      ctx.filter.projects,
+      allProjects.map((project) => ({ id: project.id, label: project.title })),
+      (selected) => {
+        ctx.filter.projects = selected
+        ctx.rerender()
+      }
+    )
+  }
+
+  const allSprints = collectAllSprints(ctx.project.tasks)
+  if (allSprints.length) {
+    renderFilterDropdown(
+      bar,
+      'Sprint',
+      ctx.filter.sprints,
+      allSprints.map((sprint) => ({ id: sprint, label: sprint })),
+      (selected) => {
+        ctx.filter.sprints = selected
+        ctx.rerender()
+      }
+    )
+  }
+
   // Due date filter
   renderDueDateFilter(bar, ctx)
 
@@ -154,6 +182,8 @@ function countActiveFilters(f: FilterState): number {
   if (f.priorities.length) count++
   if (f.assignees.length) count++
   if (f.tags.length) count++
+  if (f.projects.length) count++
+  if (f.sprints.length) count++
   if (f.dueDateFilter !== 'any') count++
   if (f.showArchived) count++
   return count

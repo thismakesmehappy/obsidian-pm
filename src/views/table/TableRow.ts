@@ -5,6 +5,7 @@ import {
   renderSelectCell,
   renderExpandCell,
   renderTitleCell,
+  renderProjectCell,
   renderStatusCell,
   renderPriorityCell,
   renderAssigneesCell,
@@ -50,6 +51,7 @@ export function renderTaskRow(
   renderSelectCell(row, task, ctx)
   renderExpandCell(row, task, ctx)
   renderTitleCell(row, task, depth, ctx)
+  if (ctx.showProjectColumn) renderProjectCell(row, task, ctx)
   renderStatusCell(row, task, ctx)
   renderPriorityCell(row, task, ctx)
   renderAssigneesCell(row, task)

@@ -21,6 +21,8 @@ export function hydrateSavedViews(raw: unknown[]): SavedView[] {
           priorities: Array.isArray(filter.priorities) ? filter.priorities : [],
           assignees: Array.isArray(filter.assignees) ? filter.assignees : [],
           tags: Array.isArray(filter.tags) ? filter.tags : [],
+          projects: Array.isArray(filter.projects) ? filter.projects : [],
+          sprints: Array.isArray(filter.sprints) ? filter.sprints : [],
           dueDateFilter: (filter.dueDateFilter as string as SavedView['filter']['dueDateFilter']) ?? 'any',
           showArchived: (filter.showArchived as boolean) ?? false
         },
@@ -37,6 +39,8 @@ export function mapRawToTask(r: Record<string, unknown>, overrides?: Partial<Tas
     title: (r.title as string) ?? 'Untitled',
     description: (r.description as string) ?? '',
     type: (r.type as string) === 'milestone' ? 'milestone' : (r.type as string) === 'subtask' ? 'subtask' : 'task',
+    projectId: (r.projectId as string) ?? '',
+    projectTitle: (r.projectTitle as string) ?? undefined,
     status: (r.status as Task['status']) ?? 'todo',
     priority: (r.priority as Task['priority']) ?? 'medium',
     start: (r.start as string) ?? '',
@@ -44,6 +48,8 @@ export function mapRawToTask(r: Record<string, unknown>, overrides?: Partial<Tas
     progress: typeof r.progress === 'number' ? r.progress : 0,
     assignees: Array.isArray(r.assignees) ? r.assignees : [],
     tags: Array.isArray(r.tags) ? r.tags : [],
+    sprints: Array.isArray(r.sprints) ? r.sprints : [],
+    milestoneIds: Array.isArray(r.milestoneIds) ? r.milestoneIds : [],
     subtasks: [],
     dependencies: Array.isArray(r.dependencies) ? r.dependencies : [],
     recurrence: r.recurrence && typeof r.recurrence === 'object' ? (r.recurrence as Task['recurrence']) : undefined,
@@ -102,6 +108,7 @@ export function hydrateProjectFromFrontmatter(
     createdAt: (frontmatter.createdAt as string) ?? new Date().toISOString(),
     updatedAt: (frontmatter.updatedAt as string) ?? new Date().toISOString(),
     filePath,
+    virtual: false,
     savedViews: hydrateSavedViews((frontmatter.savedViews as unknown[]) ?? [])
   }
 }

@@ -24,6 +24,8 @@ export function hasActiveFilters(filter: FilterState): boolean {
     filter.priorities.length ||
     filter.assignees.length ||
     filter.tags.length ||
+    filter.projects.length ||
+    filter.sprints.length ||
     filter.dueDateFilter !== 'any' ||
     filter.showArchived
   )

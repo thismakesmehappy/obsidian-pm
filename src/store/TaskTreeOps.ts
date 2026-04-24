@@ -102,6 +102,8 @@ function cloneNode(source: Task, includeSubtasks: boolean, idMap: Map<string, st
     dependencies: [...source.dependencies],
     assignees: [...source.assignees],
     tags: [...source.tags],
+    sprints: [...source.sprints],
+    milestoneIds: [...source.milestoneIds],
     customFields: { ...source.customFields },
     timeLogs: source.timeLogs ? source.timeLogs.map((l) => ({ ...l })) : undefined,
     recurrence: source.recurrence ? { ...source.recurrence } : undefined
@@ -170,6 +172,34 @@ export function collectAllTags(tasks: Task[]): string[] {
   }
   walk(tasks)
   return [...set].filter(Boolean).sort()
+}
+
+export function collectAllSprints(tasks: Task[]): string[] {
+  const set = new Set<string>()
+  const walk = (list: Task[]) => {
+    for (const t of list) {
+      for (const sprint of t.sprints) set.add(sprint)
+      walk(t.subtasks)
+    }
+  }
+  walk(tasks)
+  return [...set].filter(Boolean).sort()
+}
+
+export function collectAllProjects(tasks: Task[]): Array<{ id: string; title: string }> {
+  const map = new Map<string, string>()
+  const walk = (list: Task[]) => {
+    for (const t of list) {
+      if (t.projectId) {
+        map.set(t.projectId, t.projectTitle ?? t.projectId)
+      }
+      walk(t.subtasks)
+    }
+  }
+  walk(tasks)
+  return [...map.entries()]
+    .map(([id, title]) => ({ id, title }))
+    .sort((a, b) => a.title.localeCompare(b.title))
 }
 
 /** Sum all logged hours for a task */

@@ -10,6 +10,7 @@ export interface ProjectListContext {
   contentEl: HTMLElement
   isStale: () => boolean
   openProjectFile: (file: TFile) => Promise<void>
+  openAllTasks: () => Promise<void>
 }
 
 export function renderProjectListToolbar(ctx: ProjectListContext): void {
@@ -51,6 +52,30 @@ export async function renderProjectListContent(ctx: ProjectListContext): Promise
   }
 
   const grid = ctx.contentEl.createDiv('pm-project-grid')
+
+  const totalTasks = projects.reduce((sum, project) => sum + countTasks(project.tasks, false, ctx.plugin.settings.statuses), 0)
+  const totalDone = projects.reduce((sum, project) => sum + countTasks(project.tasks, true, ctx.plugin.settings.statuses), 0)
+
+  const allCard = grid.createDiv('pm-project-card')
+  allCard.style.setProperty('--pm-project-color', '#8b72be')
+  const allColorBar = allCard.createDiv('pm-project-card-bar')
+  allColorBar.style.background = '#8b72be'
+  const allBody = allCard.createDiv('pm-project-card-body')
+  allBody.createEl('div', { text: '🗂️', cls: 'pm-project-card-icon' })
+  allBody.createEl('h3', { text: 'All Tasks', cls: 'pm-project-card-title' })
+  const allMeta = allBody.createDiv('pm-project-card-meta')
+  allMeta.createEl('span', { text: `${totalDone}/${totalTasks} tasks`, cls: 'pm-project-card-tasks' })
+  const allProgressBar = allBody.createDiv('pm-project-card-progress')
+  const allFill = allProgressBar.createDiv('pm-project-card-progress-fill')
+  allFill.style.width = totalTasks ? `${Math.round((totalDone / totalTasks) * 100)}%` : '0%'
+  allFill.style.background = '#8b72be'
+  allCard.addEventListener(
+    'click',
+    safeAsync(async () => {
+      await ctx.openAllTasks()
+    })
+  )
+
   for (const project of projects) {
     const card = grid.createDiv('pm-project-card')
     card.style.setProperty('--pm-project-color', project.color)

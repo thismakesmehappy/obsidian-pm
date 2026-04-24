@@ -8,6 +8,7 @@ import { COLOR_MUTED } from '../constants'
 import { getStatusConfig, getPriorityConfig, formatBadgeText } from '../utils'
 import { renderCustomFieldInput } from './CustomFieldInputs'
 import { TaskPickerModal, TagPickerModal } from './PickerModals'
+import { promptText } from '../ui/ModalFactory'
 
 export interface TaskFormFieldsContext {
   task: Task
@@ -280,6 +281,69 @@ export function renderTaskFormFields(container: HTMLElement, ctx: TaskFormFields
           }).open()
         },
         addLabel: '+ tag'
+      })
+    }
+    render()
+    return wrap
+  })
+
+  // Sprints
+  renderPropRow(container, 'Sprints', () => {
+    const wrap = createDiv('pm-prop-value pm-prop-tags')
+    const render = () => {
+      const allProjectSprints = [...new Set(flattenTasks(project.tasks).flatMap((f) => f.task.sprints))].filter(
+        (sprint) => !task.sprints.includes(sprint)
+      )
+      renderChipList(wrap, task.sprints, {
+        chipCls: 'pm-tag pm-tag--removable',
+        rmCls: 'pm-tag-rm',
+        onRemove: (sprint) => {
+          task.sprints = task.sprints.filter((x) => x !== sprint)
+          render()
+        },
+        onAdd: () => {
+          void promptText(plugin.app, `Sprint name${allProjectSprints.length ? ` (${allProjectSprints.join(', ')})` : ''}`, 'YYYY-WNN').then(
+            (sprint) => {
+              if (sprint && !task.sprints.includes(sprint)) task.sprints.push(sprint)
+              render()
+            }
+          )
+        },
+        addLabel: '+ sprint'
+      })
+    }
+    render()
+    return wrap
+  })
+
+  // Milestones
+  renderPropRow(container, 'Milestones', () => {
+    const wrap = createDiv('pm-prop-value pm-prop-deps')
+    const milestones = flattenTasks(project.tasks)
+      .map((f) => f.task)
+      .filter((candidate) => candidate.type === 'milestone' && candidate.id !== task.id)
+    const render = () => {
+      renderChipList(wrap, task.milestoneIds.filter((id) => milestones.some((milestone) => milestone.id === id)), {
+        chipCls: 'pm-dep-chip',
+        rmCls: 'pm-dep-chip-rm',
+        labelFn: (milestoneId) => milestones.find((milestone) => milestone.id === milestoneId)?.title ?? milestoneId,
+        onRemove: (milestoneId) => {
+          task.milestoneIds = task.milestoneIds.filter((x) => x !== milestoneId)
+          render()
+        },
+        onAdd: () => {
+          const available = milestones.filter((milestone) => !task.milestoneIds.includes(milestone.id))
+          new TaskPickerModal(
+            plugin.app,
+            available,
+            (milestone) => {
+              task.milestoneIds.push(milestone.id)
+              render()
+            },
+            'Search milestones…'
+          ).open()
+        },
+        addLabel: '+ milestone'
       })
     }
     render()

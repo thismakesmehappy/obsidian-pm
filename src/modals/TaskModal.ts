@@ -66,6 +66,8 @@ export class TaskModal extends Modal {
   }
 
   private async persistTask(): Promise<void> {
+    this.task.projectId = this.project.id
+    this.task.projectTitle = this.project.title
     if (this.isNew) {
       await this.plugin.store.insertTask(this.project, this.task, this.parentId)
     } else if (this.parentId !== this.originalParentId) {

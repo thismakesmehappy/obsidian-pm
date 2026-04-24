@@ -34,6 +34,8 @@ export interface Task {
   title: string
   description: string
   type: TaskType // 'task' or 'milestone' (zero-duration)
+  projectId: string
+  projectTitle?: string
   status: TaskStatus
   priority: TaskPriority
   start: string // YYYY-MM-DD, empty string = unset
@@ -41,6 +43,8 @@ export interface Task {
   progress: number // 0–100
   assignees: string[]
   tags: string[]
+  sprints: string[]
+  milestoneIds: string[]
   subtasks: Task[]
   dependencies: string[] // task IDs
   recurrence?: Recurrence
@@ -67,6 +71,7 @@ export interface Project {
   updatedAt: string
   filePath: string // resolved vault path
   savedViews: SavedView[]
+  virtual?: boolean
 }
 
 export interface FilterState {
@@ -75,6 +80,8 @@ export interface FilterState {
   priorities: TaskPriority[]
   assignees: string[]
   tags: string[]
+  projects: string[]
+  sprints: string[]
   dueDateFilter: DueDateFilter
   showArchived: boolean
 }
@@ -163,6 +170,7 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
     title: 'New Task',
     description: '',
     type: 'task',
+    projectId: '',
     status: 'todo',
     priority: 'medium',
     start: today().toString(),
@@ -170,6 +178,8 @@ export function makeTask(overrides: Partial<Task> = {}): Task {
     progress: 0,
     assignees: [],
     tags: [],
+    sprints: [],
+    milestoneIds: [],
     subtasks: [],
     dependencies: [],
     customFields: {},
@@ -194,7 +204,8 @@ export function makeProject(title: string, filePath: string): Project {
     createdAt: now,
     updatedAt: now,
     filePath,
-    savedViews: []
+    savedViews: [],
+    virtual: false
   }
 }
 
@@ -205,6 +216,8 @@ export function makeDefaultFilter(): FilterState {
     priorities: [],
     assignees: [],
     tags: [],
+    projects: [],
+    sprints: [],
     dueDateFilter: 'any',
     showArchived: false
   }

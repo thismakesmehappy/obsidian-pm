@@ -23,7 +23,7 @@ export function renderQuickAddBar(
       if (e.key === 'Enter') {
         const title = input.value.trim()
         if (!title) return
-        const task = makeTask({ title })
+        const task = makeTask({ title, projectId: project.id, projectTitle: project.title })
         addTaskToTree(project.tasks, task, null)
         try {
           await plugin.store.saveProject(project)

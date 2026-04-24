@@ -1,9 +1,9 @@
 {
-  "id": "project-manager",
-  "name": "Project Manager",
-  "version": "1.3.2",
+  "id": "project-manager-fork",
+  "name": "Project Manager Fork",
+  "version": "1.3.3",
   "minAppVersion": "1.7.2",
-  "description": "Full-featured project management: stunning Gantt charts, Kanban boards, Table views, customizable fields, due date notifications.",
+  "description": "Fork of obsidian-pm with folder-derived tasks, an All Tasks view, same-pane navigation, project switching, and sprint filtering.",
   "author": "Stepan Kropachev",
   "authorUrl": "https://github.com/StepanKropachev",
   "isDesktopOnly": false

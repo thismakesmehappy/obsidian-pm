@@ -83,8 +83,10 @@ export class ProjectStore {
       } else {
         const taskFolder = this.projectTaskFolder(project)
         const taskIds = Array.isArray(frontmatter.taskIds) ? (frontmatter.taskIds as string[]) : []
-        project.tasks = await this.loadTasksFromFolder(taskFolder, taskIds)
+        project.tasks = await this.loadTasksFromFolder(taskFolder, project, taskIds)
       }
+
+      this.applyProjectMetadata(project.tasks, project)
 
       return project
     } catch (e) {
@@ -94,7 +96,7 @@ export class ProjectStore {
     }
   }
 
-  private async loadTasksFromFolder(folderPath: string, topLevelIds: string[]): Promise<Task[]> {
+  private async loadTasksFromFolder(folderPath: string, project: Project, topLevelIds: string[]): Promise<Task[]> {
     const folder = this.app.vault.getAbstractFileByPath(folderPath)
     if (!(folder instanceof TFolder)) return []
 
@@ -148,19 +150,12 @@ export class ProjectStore {
       )
     }
 
-    const result: Task[] = []
-    for (const id of topLevelIds) {
-      const task = taskMap.get(id)
-      if (task) result.push(task)
-    }
-    for (const task of taskMap.values()) {
-      if (!topLevelIds.includes(task.id)) {
-        const isChild = [...taskMap.values()].some((t) => t.subtasks.some((s) => s.id === task.id))
-        if (!isChild) result.push(task)
-      }
-    }
-
-    return result
+    const rootTasks = [...taskMap.values()].filter(
+      (task) => ![...taskMap.values()].some((candidate) => candidate.subtasks.some((subtask) => subtask.id === task.id))
+    )
+    const orderedRoots = this.orderRootTasks(rootTasks, topLevelIds)
+    this.applyProjectMetadata(orderedRoots, project)
+    return orderedRoots
   }
 
   async loadTaskFile(file: TFile): Promise<{ task: Task | null; subtaskIds: string[]; parentId: string | null }> {
@@ -181,6 +176,63 @@ export class ProjectStore {
       }
       return { task: null, subtaskIds: [], parentId: null }
     }
+  }
+
+  async loadAllTasksProject(
+    folder: string
+  ): Promise<{ project: Project; sourceProjects: Project[]; taskProjectMap: Map<string, Project> }> {
+    const sourceProjects = await this.loadAllProjects(folder)
+    const taskProjectMap = new Map<string, Project>()
+    for (const project of sourceProjects) {
+      for (const { task } of flattenTasks(project.tasks)) {
+        taskProjectMap.set(task.id, project)
+      }
+    }
+
+    const allTasksProject: Project = {
+      id: '__all_tasks__',
+      title: 'All Tasks',
+      description: 'Virtual view across every project task folder.',
+      color: '#8b72be',
+      icon: '🗂️',
+      tasks: sourceProjects.flatMap((project) => project.tasks),
+      customFields: [],
+      teamMembers: [...new Set(sourceProjects.flatMap((project) => project.teamMembers))].sort(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      filePath: '__virtual__/all-tasks',
+      savedViews: [],
+      virtual: true
+    }
+
+    return { project: allTasksProject, sourceProjects, taskProjectMap }
+  }
+
+  private applyProjectMetadata(tasks: Task[], project: Project): void {
+    for (const task of tasks) {
+      task.projectId = project.id
+      task.projectTitle = project.title
+      if (task.subtasks.length) this.applyProjectMetadata(task.subtasks, project)
+    }
+  }
+
+  private orderRootTasks(tasks: Task[], topLevelIds: string[]): Task[] {
+    const ordered: Task[] = []
+    const seen = new Set<string>()
+
+    for (const id of topLevelIds) {
+      const task = tasks.find((candidate) => candidate.id === id)
+      if (!task) continue
+      ordered.push(task)
+      seen.add(task.id)
+    }
+
+    for (const task of tasks) {
+      if (seen.has(task.id)) continue
+      ordered.push(task)
+    }
+
+    return ordered
   }
 
   // ─── Save ──────────────────────────────────────────────────────────────────
