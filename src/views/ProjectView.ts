@@ -45,10 +45,10 @@ export class ProjectView extends ItemView {
     return PM_PROJECT_VIEW_TYPE
   }
   getDisplayText(): string {
-    return truncateTitle(this.project?.title ?? 'Project', 10)
+    return this.project ? `TMMH PM: ${truncateTitle(this.project.title, 18)}` : 'TMMH PM'
   }
   getIcon(): string {
-    return 'chart-gantt'
+    return 'folder-kanban'
   }
 
   async setState(state: ProjectViewState, result: unknown): Promise<void> {

@@ -21,10 +21,10 @@ export class DashboardView extends ItemView {
     return PM_DASHBOARD_VIEW_TYPE
   }
   getDisplayText(): string {
-    return 'Projects'
+    return 'TMMH PM'
   }
   getIcon(): string {
-    return 'chart-gantt'
+    return 'folder-kanban'
   }
 
   onOpen(): Promise<void> {

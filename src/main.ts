@@ -56,7 +56,7 @@ export default class PMPlugin extends Plugin {
       })
     )
 
-    this.addRibbonIcon('chart-gantt', 'Project manager', async () => {
+    this.addRibbonIcon('folder-kanban', 'TMMH PM', async () => {
       await this.router.openDashboard()
     })
 
