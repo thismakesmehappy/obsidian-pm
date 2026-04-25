@@ -278,20 +278,6 @@ export class ProjectView extends ItemView {
       })
     })
 
-    if (this.project.virtual) {
-      const milestoneBtn = right.createEl('button', { text: '+ milestone', cls: 'pm-btn pm-btn-ghost' })
-      milestoneBtn.addEventListener('click', () => {
-        openProjectPicker(this.plugin, this.sourceProjects, (project) => {
-          openTaskModal(this.plugin, project, {
-            defaults: { type: 'milestone' },
-            onSave: async () => {
-              await this.refreshProject()
-            }
-          })
-        })
-      })
-    }
-
     const settingsBtn = right.createEl('button', {
       cls: 'pm-btn pm-btn-icon',
       attr: { 'aria-label': 'Project settings' }
