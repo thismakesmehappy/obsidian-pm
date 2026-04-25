@@ -1,10 +1,10 @@
 {
   "id": "project-manager-fork",
   "name": "TMMH PM",
-  "version": "1.3.4-vault.1",
+  "version": "1.3.4",
   "minAppVersion": "1.7.2",
-  "description": "Fork of obsidian-pm with folder-derived tasks, an All Tasks view, same-pane navigation, project switching, and sprint filtering.",
-  "author": "Stepan Kropachev",
-  "authorUrl": "https://github.com/StepanKropachev",
+  "description": "TMMH PM, a fork of obsidian-pm with folder-derived tasks, an All Tasks view, same-pane navigation, project switching, and sprint filtering.",
+  "author": "Bernardo, forked from Stepan Kropachev",
+  "authorUrl": "https://github.com/thismakesmehappy",
   "isDesktopOnly": false
 }
