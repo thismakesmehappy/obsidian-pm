@@ -1,9 +1,19 @@
+import { existsSync } from 'node:fs'
+import path from 'node:path'
 import { builtinModules } from 'node:module'
+import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'tsdown'
 
 const prod = Boolean(process.env['PRODUCTION'])
 const vaultPath = process.env['VAULT_PATH']
-const outDir = vaultPath ? `${vaultPath}/.obsidian/plugins/project-manager` : '.'
+const projectDir = path.dirname(fileURLToPath(import.meta.url))
+const localVaultPath = path.resolve(projectDir, '../../..')
+const localPluginOutDir = path.join(localVaultPath, '.obsidian/plugins/project-manager-fork')
+const outDir = vaultPath
+  ? path.join(vaultPath, '.obsidian/plugins/project-manager-fork')
+  : existsSync(path.join(localVaultPath, '.obsidian'))
+    ? localPluginOutDir
+    : '.'
 
 export default defineConfig({
   entry: 'src/main.ts',

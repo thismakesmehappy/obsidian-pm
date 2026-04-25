@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsdown --watch",
-    "build": "PRODUCTION=1 tsdown",
+    "build": "PRODUCTION=1 tsdown && npm run sync-assets",
     "check": "run-p check:**",
     "check:code": "oxlint ./src",
     "check:format": "oxfmt --check ./src",
@@ -15,6 +15,7 @@
     "fix": "run-p fix:**",
     "fix:code": "oxlint --fix ./src",
     "fix:format": "oxfmt ./src",
+    "sync-assets": "node scripts/sync-assets.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage"
