@@ -143,7 +143,6 @@ export class ProjectView extends ItemView {
       this.project = project
       this.sourceProjects = sourceProjects
       this.taskProjectMap = taskProjectMap
-      this.currentView = 'table'
       ;(this.leaf as WorkspaceLeaf & { updateHeader?: () => void }).updateHeader?.()
       this.renderProjectToolbar()
       this.renderCurrentView()
@@ -220,13 +219,11 @@ export class ProjectView extends ItemView {
     )
 
     const switcher = this.toolbarEl.createDiv('pm-view-switcher')
-    const views: { mode: ViewMode; icon: string; label: string }[] = this.project.virtual
-      ? [{ mode: 'table', icon: '≡', label: 'Table' }]
-      : [
-          { mode: 'table', icon: '≡', label: 'Table' },
-          { mode: 'gantt', icon: '▬', label: 'Gantt' },
-          { mode: 'kanban', icon: '⊞', label: 'Board' }
-        ]
+    const views: { mode: ViewMode; icon: string; label: string }[] = [
+      { mode: 'table', icon: '≡', label: 'Table' },
+      { mode: 'gantt', icon: '▬', label: 'Gantt' },
+      { mode: 'kanban', icon: '⊞', label: 'Board' }
+    ]
     for (const v of views) {
       const btn = switcher.createEl('button', {
         cls: 'pm-view-btn',
@@ -291,17 +288,6 @@ export class ProjectView extends ItemView {
               await this.refreshProject()
             }
           })
-        })
-      })
-    } else if (this.currentView === 'gantt') {
-      const milestoneBtn = right.createEl('button', { text: '+ milestone', cls: 'pm-btn pm-btn-ghost' })
-      milestoneBtn.addEventListener('click', () => {
-        if (!this.project) return
-        openTaskModal(this.plugin, this.project, {
-          defaults: { type: 'milestone' },
-          onSave: async () => {
-            await this.refreshProject()
-          }
         })
       })
     }
