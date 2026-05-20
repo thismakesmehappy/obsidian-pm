@@ -2138,3 +2138,299 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
   font-size: 1.125rem;
   color: var(--text-normal, #2b3438);
 }
+
+/* ─── Weekly Kanban View ────────────────────────────────────────────────────── */
+
+.pm-content:has(.pm-weekly-view) {
+  overflow: hidden;
+}
+
+.pm-weekly-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* Navigation bar */
+.pm-weekly-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--pm-border);
+  flex-shrink: 0;
+}
+
+.pm-weekly-nav-btn {
+  background: var(--pm-bg2);
+  border: 1px solid var(--pm-border);
+  border-radius: var(--pm-radius-sm);
+  color: var(--pm-text);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 3px 10px;
+  line-height: 1.5;
+  transition: background 0.15s;
+}
+.pm-weekly-nav-btn:hover { background: var(--pm-bg3); }
+
+.pm-weekly-nav-today--active {
+  color: var(--pm-accent);
+  border-color: var(--pm-accent);
+}
+
+.pm-weekly-nav-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pm-text);
+  margin: 0 4px;
+  flex: 1;
+  text-align: center;
+}
+
+/* Board layout */
+.pm-weekly-board {
+  display: flex;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0;
+  gap: 0;
+}
+
+/* Left label column */
+.pm-weekly-label-col {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 90px;
+  border-right: 1px solid var(--pm-border);
+  background: var(--pm-bg);
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+
+.pm-weekly-day-header-spacer {
+  height: 52px;
+  border-bottom: 1px solid var(--pm-border);
+  flex-shrink: 0;
+}
+
+.pm-weekly-block-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 10px 6px 6px;
+  gap: 3px;
+  min-height: 80px;
+  border-bottom: 1px solid var(--pm-border);
+  color: var(--pm-text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pm-weekly-block-icon { font-size: 14px; line-height: 1; }
+.pm-weekly-block-name { font-size: 9px; font-weight: 600; letter-spacing: 0.06em; }
+
+/* Day columns */
+.pm-weekly-col {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 160px;
+  max-width: 260px;
+  border-right: 1px solid var(--pm-border);
+}
+
+.pm-weekly-col--today {
+  background: var(--pm-accent-light, rgba(115, 109, 227, 0.04));
+}
+
+/* Day header */
+.pm-weekly-day-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  height: 52px;
+  border-bottom: 1px solid var(--pm-border);
+  flex-shrink: 0;
+  background: var(--pm-bg);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.pm-weekly-day-name {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.pm-weekly-day-abbr {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--pm-text-muted);
+}
+
+.pm-weekly-day-date {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--pm-text);
+}
+
+.pm-weekly-day-date--today {
+  color: var(--pm-accent);
+  font-weight: 700;
+}
+
+.pm-weekly-today-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pm-accent);
+  margin-right: 4px;
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
+}
+
+.pm-weekly-day-count {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 99px;
+  background: var(--pm-accent-light, rgba(115, 109, 227, 0.12));
+  color: var(--pm-accent);
+  margin-left: auto;
+}
+
+.pm-weekly-day-count--done {
+  background: var(--pm-bg3);
+  color: var(--pm-text-muted);
+}
+
+/* Block cells */
+.pm-weekly-block-cell {
+  min-height: 80px;
+  border-bottom: 1px solid var(--pm-border);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: background 0.12s;
+}
+
+.pm-weekly-block-cell:last-child { border-bottom: none; }
+
+.pm-weekly-drop-target {
+  background: var(--pm-accent-light, rgba(115, 109, 227, 0.08));
+  outline: 1px dashed var(--pm-accent);
+  outline-offset: -2px;
+}
+
+.pm-weekly-block-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+/* Cards */
+.pm-weekly-card {
+  background: var(--pm-bg2);
+  border: 1px solid var(--pm-border);
+  border-radius: var(--pm-radius);
+  cursor: pointer;
+  overflow: hidden;
+  transition: box-shadow 0.15s, border-color 0.15s;
+}
+
+.pm-weekly-card:hover {
+  border-color: var(--pm-accent);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.pm-weekly-card--dragging {
+  opacity: 0.35;
+}
+
+.pm-weekly-card-priority-bar {
+  height: 3px;
+  width: 100%;
+  opacity: 0.7;
+}
+
+.pm-weekly-card-body {
+  padding: 7px 9px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.pm-weekly-card-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.pm-weekly-card-title {
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  color: var(--pm-text);
+  flex: 1;
+}
+
+.pm-weekly-card-time {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pm-weekly-card-scheduled,
+.pm-weekly-card-duration {
+  font-size: 10px;
+  color: var(--pm-text-muted);
+  background: var(--pm-bg3);
+  padding: 1px 5px;
+  border-radius: 4px;
+  line-height: 1.6;
+}
+
+.pm-weekly-card-scheduled { color: var(--pm-accent); }
+
+.pm-weekly-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+}
+
+.pm-weekly-card-overdue {
+  font-size: 10px;
+  color: var(--pm-danger);
+  font-weight: 600;
+  margin-left: auto;
+}
+
+/* Scrollbars */
+.pm-weekly-board::-webkit-scrollbar { height: 6px; width: 6px; }
+.pm-weekly-board::-webkit-scrollbar-track { background: transparent; }
+.pm-weekly-board::-webkit-scrollbar-thumb {
+  background: var(--pm-border);
+  border-radius: 3px;
+}
+.pm-weekly-block-cell::-webkit-scrollbar { width: 4px; }
+.pm-weekly-block-cell::-webkit-scrollbar-track { background: transparent; }
+.pm-weekly-block-cell::-webkit-scrollbar-thumb {
+  background: var(--pm-border);
+  border-radius: 2px;
+}

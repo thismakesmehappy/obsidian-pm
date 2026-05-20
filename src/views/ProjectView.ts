@@ -7,6 +7,7 @@ import { TableView } from './table/TableView'
 import type { TableViewState } from './table/TableView'
 import { GanttView } from './gantt/GanttView'
 import { KanbanView } from './KanbanView'
+import { WeeklyKanbanView } from './WeeklyKanbanView'
 import { openProjectModal, openTaskModal, openProjectPicker } from '../ui/ModalFactory'
 
 export const PM_PROJECT_VIEW_TYPE = 'pm-project'
@@ -222,7 +223,8 @@ export class ProjectView extends ItemView {
     const views: { mode: ViewMode; icon: string; label: string }[] = [
       { mode: 'table', icon: '≡', label: 'Table' },
       { mode: 'gantt', icon: '▬', label: 'Gantt' },
-      { mode: 'kanban', icon: '⊞', label: 'Board' }
+      { mode: 'kanban', icon: '⊞', label: 'Board' },
+      { mode: 'weekly', icon: '📅', label: 'Week' }
     ]
     for (const v of views) {
       const btn = switcher.createEl('button', {
@@ -346,6 +348,9 @@ export class ProjectView extends ItemView {
       }
       case 'kanban':
         this.subview = new KanbanView(this.bodyEl, this.project, this.plugin, () => this.refreshProject())
+        break
+      case 'weekly':
+        this.subview = new WeeklyKanbanView(this.bodyEl, this.project, this.plugin, () => this.refreshProject())
         break
     }
     this.subview?.render()
