@@ -127,19 +127,19 @@ export interface PMSettings {
 // ─── Defaults ────────────────────────────────────────────────────────────────
 
 export const DEFAULT_STATUSES: StatusConfig[] = [
-  { id: 'todo', label: 'To Do', color: '#8a94a0', icon: '', complete: false },
-  { id: 'in-progress', label: 'In Progress', color: '#8b72be', icon: '', complete: false },
-  { id: 'blocked', label: 'Blocked', color: '#c47070', icon: '', complete: false },
-  { id: 'review', label: 'In Review', color: '#b8a06b', icon: '', complete: false },
-  { id: 'done', label: 'Done', color: '#79b58d', icon: '', complete: true },
-  { id: 'cancelled', label: 'Cancelled', color: '#767491', icon: '', complete: true }
+  { id: 'todo', label: 'To Do', color: '#5b9bd5', icon: '', complete: false },
+  { id: 'in-progress', label: 'In Progress', color: '#d4a017', icon: '', complete: false },
+  { id: 'blocked', label: 'Blocked', color: '#c44f4f', icon: '', complete: false },
+  { id: 'review', label: 'In Review', color: '#d4722a', icon: '', complete: false },
+  { id: 'done', label: 'Done', color: '#4caf7d', icon: '', complete: true },
+  { id: 'cancelled', label: 'Cancelled', color: '#6b7280', icon: '', complete: true }
 ]
 
 export const DEFAULT_PRIORITIES: PriorityConfig[] = [
-  { id: 'critical', label: 'Critical', color: '#c47070', icon: '' },
-  { id: 'high', label: 'High', color: '#b8a06b', icon: '' },
+  { id: 'critical', label: 'Critical', color: '#c44f4f', icon: '' },
+  { id: 'high', label: 'High', color: '#d4a017', icon: '' },
   { id: 'medium', label: 'Medium', color: '#8a94a0', icon: '' },
-  { id: 'low', label: 'Low', color: '#79b58d', icon: '' }
+  { id: 'low', label: 'Low', color: '#6b7280', icon: '' }
 ]
 
 export const DEFAULT_SETTINGS: PMSettings = {

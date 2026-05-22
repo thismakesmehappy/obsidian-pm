@@ -3,7 +3,7 @@ import type PMPlugin from '../main'
 import { Project, Task } from '../types'
 import { today, parsePlainDate, Temporal } from '../dates'
 import { flattenTasks } from '../store/TaskTreeOps'
-import { safeAsync, getPriorityConfig, isTaskOverdue, isTerminalStatus } from '../utils'
+import { safeAsync, getStatusConfig, getPriorityConfig, isTaskOverdue, isTerminalStatus } from '../utils'
 import { renderStatusBadge } from '../ui/StatusBadge'
 import { openTaskModal } from '../ui/ModalFactory'
 import { buildTaskContextMenu } from '../ui/TaskContextMenu'
@@ -248,11 +248,9 @@ export class WeeklyKanbanView implements SubView {
     card.draggable = true
     card.dataset.taskId = task.id
 
-    const priorityConfig = getPriorityConfig(this.plugin.settings.priorities, task.priority)
-    if (priorityConfig && task.priority !== 'medium' && task.priority !== 'low') {
-      const bar = card.createDiv('pm-weekly-card-priority-bar')
-      bar.setCssStyles({ background: priorityConfig.color })
-    }
+    const statusConfig = getStatusConfig(this.plugin.settings.statuses, task.status)
+    const statusBar = card.createDiv('pm-weekly-card-status-bar')
+    statusBar.setCssStyles({ background: statusConfig?.color ?? '#8a94a0' })
 
     const body = card.createDiv('pm-weekly-card-body')
 
@@ -283,6 +281,14 @@ export class WeeklyKanbanView implements SubView {
     // Overdue indicator
     if (isTaskOverdue(task, this.plugin.settings.statuses)) {
       footer.createEl('span', { text: 'overdue', cls: 'pm-weekly-card-overdue' })
+    }
+
+    const priorityConfig = getPriorityConfig(this.plugin.settings.priorities, task.priority)
+    if (priorityConfig) {
+      const dot = footer.createEl('span', { cls: 'pm-priority-dot' })
+      dot.title = priorityConfig.label
+      dot.setCssStyles({ background: priorityConfig.color })
+      if (task.priority === 'medium' || task.priority === 'low') dot.addClass('pm-priority-dot--dim')
     }
 
     // Drag

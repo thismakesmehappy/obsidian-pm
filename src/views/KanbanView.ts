@@ -7,6 +7,7 @@ import {
   formatDateShort,
   isTaskOverdue,
   isTerminalStatus,
+  getStatusConfig,
   getPriorityConfig,
   formatBadgeText,
   safeAsync
@@ -137,11 +138,9 @@ export class KanbanView implements SubView {
     card.draggable = true
     card.dataset.taskId = task.id
 
-    const priorityConfig = getPriorityConfig(this.plugin.settings.priorities, task.priority)
-    if (priorityConfig && task.priority !== 'medium' && task.priority !== 'low') {
-      const priorityBar = card.createDiv('pm-kanban-card-priority-bar')
-      priorityBar.setCssStyles({ background: priorityConfig.color })
-    }
+    const statusConfig = getStatusConfig(this.plugin.settings.statuses, task.status)
+    const statusBar = card.createDiv('pm-kanban-card-status-bar')
+    statusBar.setCssStyles({ background: statusConfig?.color ?? '#8a94a0' })
 
     const body = card.createDiv('pm-kanban-card-body')
 
@@ -213,6 +212,14 @@ export class KanbanView implements SubView {
         cls: 'pm-kanban-due'
       })
       if (overdue) chip.addClass('pm-kanban-due--overdue')
+    }
+
+    const priorityConfig = getPriorityConfig(this.plugin.settings.priorities, task.priority)
+    if (priorityConfig) {
+      const dot = footer.createEl('span', { cls: 'pm-priority-dot' })
+      dot.title = priorityConfig.label
+      dot.setCssStyles({ background: priorityConfig.color })
+      if (task.priority === 'medium' || task.priority === 'low') dot.addClass('pm-priority-dot--dim')
     }
 
     // Progress mini bar

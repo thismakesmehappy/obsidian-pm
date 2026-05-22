@@ -3,7 +3,7 @@ import type { Task } from '../../types'
 import { flattenTasks, filterArchived, filterDone } from '../../store/TaskTreeOps'
 import { openTaskModal } from '../../ui/ModalFactory'
 import { COLOR_ACCENT } from '../../constants'
-import { svgEl, getStatusConfig, safeAsync } from '../../utils'
+import { svgEl, getStatusConfig, getPriorityConfig, safeAsync } from '../../utils'
 import { parsePlainDate } from '../../dates'
 import {
   ROW_HEIGHT,
@@ -30,7 +30,8 @@ export function renderTaskBar(g: SVGGElement, task: Task, row: number, _depth: n
   }
 
   const statusConfig = getStatusConfig(ctx.plugin.settings.statuses, task.status)
-  const color = statusConfig?.color ?? COLOR_ACCENT
+  const priorityConfig = getPriorityConfig(ctx.plugin.settings.priorities, task.priority)
+  const color = priorityConfig?.color ?? COLOR_ACCENT
   const rowY = HEADER_HEIGHT + row * ROW_HEIGHT
   const y = rowY + BAR_PADDING
   const height = ROW_HEIGHT - BAR_PADDING * 2
