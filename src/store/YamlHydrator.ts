@@ -35,7 +35,7 @@ export function hydrateSavedViews(raw: unknown[]): SavedView[] {
 /** Map raw frontmatter fields to a Task, with optional overrides */
 export function mapRawToTask(r: Record<string, unknown>, overrides?: Partial<Task>): Task {
   return makeTask({
-    id: r.id as string,
+    id: r.id != null ? String(r.id) : '',
     title: (r.title as string) ?? 'Untitled',
     description: (r.description as string) ?? '',
     type: (r.type as string) === 'milestone' ? 'milestone' : (r.type as string) === 'subtask' ? 'subtask' : 'task',
