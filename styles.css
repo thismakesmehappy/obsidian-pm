@@ -2156,14 +2156,14 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
 /* ─── Weekly Kanban View ────────────────────────────────────────────────────── */
 
 .pm-content:has(.pm-weekly-view) {
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
 .pm-weekly-view {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  overflow: hidden;
+  min-height: 100%;
 }
 
 /* Navigation bar */
@@ -2208,7 +2208,7 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
   display: flex;
   flex: 1;
   overflow-x: auto;
-  overflow-y: hidden;
+  overflow-y: visible;
   padding: 0;
   gap: 0;
 }
