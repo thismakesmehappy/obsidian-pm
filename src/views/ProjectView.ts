@@ -347,10 +347,10 @@ export class ProjectView extends ItemView {
         break
       }
       case 'kanban':
-        this.subview = new KanbanView(this.bodyEl, this.project, this.plugin, () => this.refreshProject())
+        this.subview = new KanbanView(this.bodyEl, this.project, this.plugin, () => this.refreshProject(), (taskId) => this.resolveProjectForTask(taskId))
         break
       case 'weekly':
-        this.subview = new WeeklyKanbanView(this.bodyEl, this.project, this.plugin, () => this.refreshProject())
+        this.subview = new WeeklyKanbanView(this.bodyEl, this.project, this.plugin, () => this.refreshProject(), (taskId) => this.resolveProjectForTask(taskId))
         break
     }
     this.subview?.render()

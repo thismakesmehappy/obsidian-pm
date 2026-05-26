@@ -2203,21 +2203,29 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
   text-align: center;
 }
 
-/* Board layout */
+/* Board layout — CSS grid so every column shares the same row tracks.
+   Row 1 = header (52px fixed), rows 2–5 = one per time-block (auto height,
+   but all columns share the same track so cells align horizontally). */
 .pm-weekly-board {
-  display: flex;
+  display: grid;
+  /* label col (90px) + up to 7 day cols; each day col is 1fr with a 160px min */
+  grid-template-columns: 90px repeat(auto-fill, minmax(160px, 1fr));
+  /* header row fixed; four block rows grow to fit the tallest cell in each row */
+  grid-template-rows: 52px auto auto auto auto;
+  align-items: stretch;
   flex: 1;
   overflow-x: auto;
   overflow-y: visible;
   padding: 0;
-  gap: 0;
 }
 
-/* Left label column */
+/* Left label column — uses display:grid + subgrid so its 5 children
+   land in the same 5 row tracks as the day columns */
 .pm-weekly-label-col {
-  display: flex;
-  flex-direction: column;
-  flex-shrink: 0;
+  grid-column: 1;
+  grid-row: 1 / -1;          /* span all rows */
+  display: grid;
+  grid-template-rows: subgrid;
   width: 90px;
   border-right: 1px solid var(--pm-border);
   background: var(--pm-bg);
@@ -2227,9 +2235,11 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
 }
 
 .pm-weekly-day-header-spacer {
-  height: 52px;
   border-bottom: 1px solid var(--pm-border);
-  flex-shrink: 0;
+  background: var(--pm-bg);
+  position: sticky;
+  top: 0;
+  z-index: 3;
 }
 
 .pm-weekly-block-label {
@@ -2239,7 +2249,6 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
   justify-content: flex-start;
   padding: 10px 6px 6px;
   gap: 3px;
-  min-height: 80px;
   border-bottom: 1px solid var(--pm-border);
   color: var(--pm-text-muted);
   font-size: 10px;
@@ -2250,13 +2259,13 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
 .pm-weekly-block-icon { font-size: 14px; line-height: 1; }
 .pm-weekly-block-name { font-size: 9px; font-weight: 600; letter-spacing: 0.06em; }
 
-/* Day columns */
+/* Day columns — also span all 5 row tracks via subgrid so their
+   header + 4 block cells share the board's row track sizes */
 .pm-weekly-col {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-width: 160px;
-  max-width: 260px;
+  grid-row: 1 / -1;
+  display: grid;
+  grid-template-rows: subgrid;
+  min-width: 0;           /* let grid track constrain width; cards wrap inside */
   border-right: 1px solid var(--pm-border);
 }
 
@@ -2264,15 +2273,13 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
   background: var(--pm-accent-light, rgba(115, 109, 227, 0.04));
 }
 
-/* Day header */
+/* Day header — first child of each column, sits in row-track 1 */
 .pm-weekly-day-header {
   display: flex;
   align-items: center;
   gap: 6px;
   padding: 8px 10px;
-  height: 52px;
   border-bottom: 1px solid var(--pm-border);
-  flex-shrink: 0;
   background: var(--pm-bg);
   position: sticky;
   top: 0;
@@ -2331,9 +2338,9 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
   color: var(--pm-text-muted);
 }
 
-/* Block cells */
+/* Block cells — height is driven by the shared grid row track (tallest column
+   wins), so no min-height needed; border-bottom gives the horizontal rule */
 .pm-weekly-block-cell {
-  min-height: 80px;
   border-bottom: 1px solid var(--pm-border);
   padding: 6px;
   display: flex;
@@ -2342,7 +2349,33 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
   transition: background 0.12s;
 }
 
-.pm-weekly-block-cell:last-child { border-bottom: none; }
+/* Row color-coding — applied to both the label cell and every block cell
+   in that row so the tint spans the full width */
+.pm-weekly-block-label[data-block="morning"],
+.pm-weekly-block-cell[data-block="morning"] {
+  background: rgba(255, 200, 80, 0.05);
+  border-left: 2px solid rgba(255, 200, 80, 0.35);
+}
+.pm-weekly-block-label[data-block="afternoon"],
+.pm-weekly-block-cell[data-block="afternoon"] {
+  background: rgba(255, 140, 50, 0.05);
+  border-left: 2px solid rgba(255, 140, 50, 0.30);
+}
+.pm-weekly-block-label[data-block="evening"],
+.pm-weekly-block-cell[data-block="evening"] {
+  background: rgba(110, 90, 200, 0.06);
+  border-left: 2px solid rgba(110, 90, 200, 0.30);
+}
+.pm-weekly-block-label[data-block="flexible"],
+.pm-weekly-block-cell[data-block="flexible"] {
+  background: rgba(80, 180, 140, 0.05);
+  border-left: 2px solid rgba(80, 180, 140, 0.28);
+}
+
+/* Drop target overrides the bg but keeps the accent outline */
+.pm-weekly-block-cell.pm-weekly-drop-target {
+  background: var(--pm-accent-light, rgba(115, 109, 227, 0.08));
+}
 
 .pm-weekly-drop-target {
   background: var(--pm-accent-light, rgba(115, 109, 227, 0.08));
@@ -2359,6 +2392,8 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
 
 /* Cards */
 .pm-weekly-card {
+  width: 100%;
+  box-sizing: border-box;
   background: var(--pm-bg2);
   border: 1px solid var(--pm-border);
   border-radius: var(--pm-radius);
@@ -2402,7 +2437,33 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
   line-height: 1.4;
   color: var(--pm-text);
   flex: 1;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  min-width: 0;
 }
+
+/* Time-block icon chip — sits top-right of the title row */
+.pm-weekly-card-block-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  line-height: 1.6;
+  white-space: nowrap;
+  color: var(--pm-text-muted);
+  background: var(--pm-bg3);
+}
+.pm-weekly-card-block-chip-icon { font-size: 11px; line-height: 1; }
+.pm-weekly-card-block-chip-time { font-variant-numeric: tabular-nums; }
+
+/* Per-block chip accent colours matching row tints */
+.pm-weekly-card-block-chip--morning  { background: rgba(255, 200, 80,  0.12); color: rgba(255, 200, 80,  0.9); }
+.pm-weekly-card-block-chip--afternoon{ background: rgba(255, 140, 50,  0.12); color: rgba(255, 140, 50,  0.9); }
+.pm-weekly-card-block-chip--evening  { background: rgba(110, 90,  200, 0.14); color: rgba(150, 130, 230, 0.95); }
+.pm-weekly-card-block-chip--flexible { background: rgba(80,  180, 140, 0.12); color: rgba(80,  180, 140, 0.9); }
 
 .pm-weekly-card-time {
   display: flex;
@@ -2410,7 +2471,6 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
   flex-wrap: wrap;
 }
 
-.pm-weekly-card-scheduled,
 .pm-weekly-card-duration {
   font-size: 10px;
   color: var(--pm-text-muted);
@@ -2419,8 +2479,6 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
   border-radius: 4px;
   line-height: 1.6;
 }
-
-.pm-weekly-card-scheduled { color: var(--pm-accent); }
 
 .pm-weekly-card-footer {
   display: flex;

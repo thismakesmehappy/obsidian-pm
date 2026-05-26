@@ -390,6 +390,52 @@ export function renderTaskFormFields(container: HTMLElement, ctx: TaskFormFields
     return wrap
   })
 
+  // ── Scheduling ─────────────────────────────────────────────────────────────
+  const schedSection = container.createDiv('pm-modal-section')
+  schedSection.createEl('h4', { text: 'Scheduling', cls: 'pm-modal-section-title' })
+  const schedProps = schedSection.createDiv('pm-modal-props')
+
+  // Time block
+  renderPropRow(schedProps, 'Time block', () => {
+    const sel = createEl('select', { cls: 'pm-prop-select' })
+    const blocks: { value: string; label: string }[] = [
+      { value: 'flexible', label: '⏱ Flexible' },
+      { value: 'morning',  label: '🌅 Morning'  },
+      { value: 'afternoon',label: '☀️ Afternoon' },
+      { value: 'evening',  label: '🌙 Evening'   }
+    ]
+    for (const b of blocks) {
+      const opt = sel.createEl('option', { value: b.value, text: b.label })
+      if ((task.customFields.time_block ?? 'flexible') === b.value) opt.selected = true
+    }
+    sel.addEventListener('change', () => {
+      task.customFields = { ...task.customFields, time_block: sel.value }
+    })
+    return sel
+  })
+
+  // Scheduled time
+  renderPropRow(schedProps, 'Scheduled time', () => {
+    const input = createEl('input', { type: 'text', cls: 'pm-prop-value pm-prop-text' })
+    input.placeholder = 'e.g. 9:00 AM'
+    input.value = typeof task.customFields.scheduled_time === 'string' ? task.customFields.scheduled_time : ''
+    input.addEventListener('input', () => {
+      task.customFields = { ...task.customFields, scheduled_time: input.value }
+    })
+    return input
+  })
+
+  // Estimated duration
+  renderPropRow(schedProps, 'Duration', () => {
+    const input = createEl('input', { type: 'text', cls: 'pm-prop-value pm-prop-text' })
+    input.placeholder = 'e.g. 30 min, 1.5 hr'
+    input.value = typeof task.customFields.estimated_duration === 'string' ? task.customFields.estimated_duration : ''
+    input.addEventListener('input', () => {
+      task.customFields = { ...task.customFields, estimated_duration: input.value }
+    })
+    return input
+  })
+
   // Custom fields
   if (project.customFields.length > 0) {
     const cfSection = container.createDiv('pm-modal-section')

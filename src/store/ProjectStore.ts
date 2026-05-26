@@ -182,10 +182,44 @@ export class ProjectStore {
     folder: string
   ): Promise<{ project: Project; sourceProjects: Project[]; taskProjectMap: Map<string, Project> }> {
     const sourceProjects = await this.loadAllProjects(folder)
+
+    // Build a folder → project map so we can assign ownership to any task file
+    // regardless of where it lives under the projects folder.
+    const projectByTaskFolder = new Map<string, Project>()
+    for (const p of sourceProjects) {
+      projectByTaskFolder.set(normalizePath(this.projectTaskFolder(p)), p)
+    }
+
+    // Scan ALL markdown files under the projects folder for pm-task: true.
+    // This picks up tasks whether they live in a recognised _tasks/ subfolder,
+    // a flat location like ProjectManagement/, or anywhere else underneath.
     const taskProjectMap = new Map<string, Project>()
-    for (const project of sourceProjects) {
-      for (const { task } of flattenTasks(project.tasks)) {
-        taskProjectMap.set(task.id, project)
+    const allTasks: Task[] = []
+
+    const candidates = this.app.vault.getMarkdownFiles()
+      .filter((f) => f.path.startsWith(folder + '/'))
+
+    for (const file of candidates) {
+      try {
+        const content = await this.app.vault.read(file)
+        const { frontmatter } = parseFrontmatter(content)
+        if (!frontmatter || frontmatter[TASK_FRONTMATTER_KEY] !== true) continue
+
+        const { task } = await this.loadTaskFile(file)
+        if (!task) continue
+
+        // Determine owning project: match by _tasks folder prefix, else first project
+        const fileDir = normalizePath(file.path.substring(0, file.path.lastIndexOf('/')))
+        const owningProject = projectByTaskFolder.get(fileDir) ?? sourceProjects[0] ?? null
+        if (owningProject) {
+          task.projectId = owningProject.id
+          task.projectTitle = owningProject.title
+          taskProjectMap.set(task.id, owningProject)
+        }
+
+        allTasks.push(task)
+      } catch {
+        // skip unreadable / malformed files
       }
     }
 
@@ -195,9 +229,9 @@ export class ProjectStore {
       description: 'Virtual view across every project task folder.',
       color: '#8b72be',
       icon: '🗂️',
-      tasks: sourceProjects.flatMap((project) => project.tasks),
+      tasks: allTasks,
       customFields: [],
-      teamMembers: [...new Set(sourceProjects.flatMap((project) => project.teamMembers))].sort(),
+      teamMembers: [...new Set(sourceProjects.flatMap((p) => p.teamMembers))].sort(),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       filePath: '__virtual__/all-tasks',
@@ -249,6 +283,11 @@ export class ProjectStore {
   }
 
   private async doSaveProject(project: Project): Promise<void> {
+    if (project.virtual) {
+      console.error('[PM] Attempted to save virtual project — operation blocked. Use resolveRealProject() before mutating tasks.')
+      throw new Error('[PM] Cannot save virtual project. Resolve the real owning project first.')
+    }
+
     try {
       project.updatedAt = new Date().toISOString()
 

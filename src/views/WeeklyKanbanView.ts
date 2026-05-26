@@ -59,7 +59,8 @@ export class WeeklyKanbanView implements SubView {
     private container: HTMLElement,
     private project: Project,
     private plugin: PMPlugin,
-    private onRefresh: () => Promise<void>
+    private onRefresh: () => Promise<void>,
+    private resolveProject: (taskId: string) => Project = () => project
   ) {}
 
   destroy(): void {
@@ -141,16 +142,22 @@ export class WeeklyKanbanView implements SubView {
       return (tasksByDay.get(day.toString()) ?? []).length > 0
     })
 
-    // Label column (time block labels on the left)
+    // The board uses CSS grid with shared named row tracks so every column's
+    // time-block cells align horizontally regardless of content height.
+    // Row order: [header] [morning] [afternoon] [evening] [flexible]
+    // The label column occupies column 1; each day occupies one further column.
+
+    // Label column — one cell per row track
     const labelCol = board.createDiv('pm-weekly-label-col')
-    labelCol.createDiv('pm-weekly-day-header-spacer') // aligns with day header row
+    labelCol.createDiv('pm-weekly-day-header-spacer')
     for (const block of TIME_BLOCKS) {
       const cell = labelCol.createDiv('pm-weekly-block-label')
+      cell.dataset.block = block.id
       cell.createEl('span', { cls: 'pm-weekly-block-icon', text: block.icon })
       cell.createEl('span', { cls: 'pm-weekly-block-name', text: block.label })
     }
 
-    // Day columns
+    // Day columns — each column is itself a CSS subgrid spanning all row tracks
     for (const day of visibleDays) {
       const dayStr = day.toString()
       const isToday = dayStr === todayStr
@@ -160,7 +167,7 @@ export class WeeklyKanbanView implements SubView {
       const col = board.createDiv('pm-weekly-col')
       if (isToday) col.addClass('pm-weekly-col--today')
 
-      // Day header
+      // Header cell — sits in the shared header row track
       const header = col.createDiv('pm-weekly-day-header')
       const dayLabel = header.createDiv('pm-weekly-day-name')
       dayLabel.createEl('span', { text: DAY_NAMES[dayIdx], cls: 'pm-weekly-day-abbr' })
@@ -173,7 +180,6 @@ export class WeeklyKanbanView implements SubView {
         dateEl.prepend(dot)
       }
 
-      // Task count badge
       const nonDone = tasks.filter((t) => !isTerminalStatus(t.status, this.plugin.settings.statuses))
       if (tasks.length > 0) {
         header.createEl('span', {
@@ -182,7 +188,7 @@ export class WeeklyKanbanView implements SubView {
         })
       }
 
-      // Time block rows
+      // One block cell per time-block track — order must match TIME_BLOCKS / grid rows
       for (const block of TIME_BLOCKS) {
         const blockTasks = tasks.filter((t) => getTimeBlock(t) === block.id)
         this.renderBlockCell(col, dayStr, block.id, blockTasks)
@@ -233,7 +239,7 @@ export class WeeklyKanbanView implements SubView {
         }
 
         if (Object.keys(patch).length > 0) {
-          await this.plugin.store.updateTask(this.project, this.dragTask.id, patch)
+          await this.plugin.store.updateTask(this.resolveProject(this.dragTask.id), this.dragTask.id, patch)
           await this.onRefresh()
         }
         this.dragTask = null
@@ -258,23 +264,29 @@ export class WeeklyKanbanView implements SubView {
     const titleRow = body.createDiv('pm-weekly-card-title-row')
     titleRow.createEl('span', { text: task.title, cls: 'pm-weekly-card-title' })
 
-    // Time metadata row (scheduled_time + estimated_duration)
+    // Time-block icon chip (top-right of title row) + scheduled time if present
+    const block = getTimeBlock(task)
+    const blockDef = TIME_BLOCKS.find((b) => b.id === block)
     const scheduledTime = getScheduledTime(task)
-    const estimatedDuration = getEstimatedDuration(task)
-    if (scheduledTime || estimatedDuration) {
-      const timeMeta = body.createDiv('pm-weekly-card-time')
+    if (blockDef) {
+      const chip = titleRow.createEl('span', { cls: `pm-weekly-card-block-chip pm-weekly-card-block-chip--${block}` })
+      chip.createEl('span', { cls: 'pm-weekly-card-block-chip-icon', text: blockDef.icon })
       if (scheduledTime) {
-        timeMeta.createEl('span', { text: `🕐 ${scheduledTime}`, cls: 'pm-weekly-card-scheduled' })
+        chip.createEl('span', { cls: 'pm-weekly-card-block-chip-time', text: scheduledTime })
       }
-      if (estimatedDuration) {
-        timeMeta.createEl('span', { text: `⏱ ${estimatedDuration}`, cls: 'pm-weekly-card-duration' })
-      }
+    }
+
+    // Duration row
+    const estimatedDuration = getEstimatedDuration(task)
+    if (estimatedDuration) {
+      const timeMeta = body.createDiv('pm-weekly-card-time')
+      timeMeta.createEl('span', { text: `⏱ ${estimatedDuration}`, cls: 'pm-weekly-card-duration' })
     }
 
     // Status badge (inline editable)
     const footer = body.createDiv('pm-weekly-card-footer')
     renderStatusBadge(footer, task, this.plugin.settings.statuses, safeAsync(async (status) => {
-      await this.plugin.store.updateTask(this.project, task.id, { status })
+      await this.plugin.store.updateTask(this.resolveProject(task.id), task.id, { status })
       await this.onRefresh()
     }))
 
@@ -307,7 +319,7 @@ export class WeeklyKanbanView implements SubView {
 
     // Click to open modal
     card.addEventListener('click', () => {
-      openTaskModal(this.plugin, this.project, {
+      openTaskModal(this.plugin, this.resolveProject(task.id), {
         task,
         onSave: safeAsync(async () => {
           await this.onRefresh()
@@ -319,7 +331,7 @@ export class WeeklyKanbanView implements SubView {
     card.addEventListener('contextmenu', (e) => {
       e.preventDefault()
       const menu = new Menu()
-      buildTaskContextMenu(menu, task, { plugin: this.plugin, project: this.project, onRefresh: this.onRefresh })
+      buildTaskContextMenu(menu, task, { plugin: this.plugin, project: this.resolveProject(task.id), onRefresh: this.onRefresh })
       menu.showAtMouseEvent(e)
     })
   }

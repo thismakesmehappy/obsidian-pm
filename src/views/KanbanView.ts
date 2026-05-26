@@ -24,7 +24,8 @@ export class KanbanView implements SubView {
     private container: HTMLElement,
     private project: Project,
     private plugin: PMPlugin,
-    private onRefresh: () => Promise<void>
+    private onRefresh: () => Promise<void>,
+    private resolveProject: (taskId: string) => Project = () => project
   ) {}
 
   destroy(): void {
@@ -117,7 +118,7 @@ export class KanbanView implements SubView {
         if (!this.dragTask) return
         const newStatus = status.id
         if (newStatus !== this.dragTask.status) {
-          await this.plugin.store.updateTask(this.project, this.dragTask.id, { status: newStatus })
+          await this.plugin.store.updateTask(this.resolveProject(this.dragTask.id), this.dragTask.id, { status: newStatus })
           await this.onRefresh()
         }
         this.dragTask = null
@@ -251,7 +252,7 @@ export class KanbanView implements SubView {
 
     // Click to open
     card.addEventListener('click', () => {
-      openTaskModal(this.plugin, this.project, {
+      openTaskModal(this.plugin, this.resolveProject(task.id), {
         task,
         onSave: async () => {
           await this.onRefresh()
@@ -263,7 +264,7 @@ export class KanbanView implements SubView {
     card.addEventListener('contextmenu', (e) => {
       e.preventDefault()
       const menu = new Menu()
-      buildTaskContextMenu(menu, task, { plugin: this.plugin, project: this.project, onRefresh: this.onRefresh })
+      buildTaskContextMenu(menu, task, { plugin: this.plugin, project: this.resolveProject(task.id), onRefresh: this.onRefresh })
       menu.showAtMouseEvent(e)
     })
   }
