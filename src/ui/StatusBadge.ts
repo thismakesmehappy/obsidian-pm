@@ -19,6 +19,7 @@ export function renderStatusBadge(
   })
   badge.style.setProperty('--badge-color', config?.color ?? COLOR_MUTED)
   badge.addEventListener('click', (e) => {
+    e.stopPropagation()
     const menu = new Menu()
     for (const s of statuses) {
       menu.addItem((item) =>
