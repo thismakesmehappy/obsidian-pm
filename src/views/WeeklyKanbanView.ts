@@ -12,8 +12,8 @@ import type { SubView } from './SubView'
 type TimeBlock = 'morning' | 'afternoon' | 'evening' | 'flexible'
 
 const TIME_BLOCKS: { id: TimeBlock; label: string; icon: string }[] = [
-  { id: 'morning', label: 'Morning', icon: '🌅' },
-  { id: 'afternoon', label: 'Afternoon', icon: '☀️' },
+  { id: 'morning', label: 'Morning', icon: '🌞' },
+  { id: 'afternoon', label: 'Afternoon', icon: '🌻' },
   { id: 'evening', label: 'Evening', icon: '🌙' },
   { id: 'flexible', label: 'Flexible', icon: '⏱' }
 ]
@@ -264,18 +264,6 @@ export class WeeklyKanbanView implements SubView {
     const titleRow = body.createDiv('pm-weekly-card-title-row')
     titleRow.createEl('span', { text: task.title, cls: 'pm-weekly-card-title' })
 
-    // Time-block icon chip (top-right of title row) + scheduled time if present
-    const block = getTimeBlock(task)
-    const blockDef = TIME_BLOCKS.find((b) => b.id === block)
-    const scheduledTime = getScheduledTime(task)
-    if (blockDef) {
-      const chip = titleRow.createEl('span', { cls: `pm-weekly-card-block-chip pm-weekly-card-block-chip--${block}` })
-      chip.createEl('span', { cls: 'pm-weekly-card-block-chip-icon', text: blockDef.icon })
-      if (scheduledTime) {
-        chip.createEl('span', { cls: 'pm-weekly-card-block-chip-time', text: scheduledTime })
-      }
-    }
-
     // Duration row
     const estimatedDuration = getEstimatedDuration(task)
     if (estimatedDuration) {
@@ -283,12 +271,24 @@ export class WeeklyKanbanView implements SubView {
       timeMeta.createEl('span', { text: `⏱ ${estimatedDuration}`, cls: 'pm-weekly-card-duration' })
     }
 
-    // Status badge (inline editable)
+    // Footer: status badge · priority dot · time-block chip (with scheduled time if present)
     const footer = body.createDiv('pm-weekly-card-footer')
     renderStatusBadge(footer, task, this.plugin.settings.statuses, safeAsync(async (status) => {
       await this.plugin.store.updateTask(this.resolveProject(task.id), task.id, { status })
       await this.onRefresh()
     }))
+
+    // Time-block chip
+    const block = getTimeBlock(task)
+    const blockDef = TIME_BLOCKS.find((b) => b.id === block)
+    const scheduledTime = getScheduledTime(task)
+    if (blockDef) {
+      const chip = footer.createEl('span', { cls: `pm-weekly-card-block-chip pm-weekly-card-block-chip--${block}` })
+      chip.createEl('span', { cls: 'pm-weekly-card-block-chip-icon', text: blockDef.icon })
+      if (scheduledTime) {
+        chip.createEl('span', { cls: 'pm-weekly-card-block-chip-time', text: scheduledTime })
+      }
+    }
 
     // Overdue indicator
     if (isTaskOverdue(task, this.plugin.settings.statuses)) {
