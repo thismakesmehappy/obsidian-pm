@@ -2204,14 +2204,15 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
 }
 
 /* Board layout — CSS grid so every column shares the same row tracks.
-   Row 1 = header (52px fixed), rows 2–5 = one per time-block (auto height,
-   but all columns share the same track so cells align horizontally). */
+   Row 1 = header (52px fixed), rows 2–6 = one per time-block (auto height,
+   but all columns share the same track so cells align horizontally).
+   Column widths are set via inline style (dynamic day count). */
 .pm-weekly-board {
   display: grid;
-  /* label col (90px) + up to 7 day cols; each day col is 1fr with a 160px min */
-  grid-template-columns: 90px repeat(auto-fill, minmax(160px, 1fr));
-  /* header row fixed; four block rows grow to fit the tallest cell in each row */
-  grid-template-rows: 52px auto auto auto auto;
+  /* Fallback columns; overridden by inline style with exact day count */
+  grid-template-columns: 90px repeat(5, minmax(160px, 1fr));
+  /* header row fixed; five block rows (all-day + four timed) grow to fit */
+  grid-template-rows: 52px auto auto auto auto auto;
   align-items: stretch;
   flex: 1;
   overflow-x: auto;
@@ -2349,6 +2350,22 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
   transition: background 0.12s;
 }
 
+/* All-day row — neutral tint with a bottom separator */
+.pm-weekly-block-label[data-block="all-day"],
+.pm-weekly-block-cell[data-block="all-day"] {
+  background: rgba(120, 120, 130, 0.06);
+  border-left: 2px solid rgba(120, 120, 130, 0.25);
+  border-bottom: 2px solid var(--pm-border);
+}
+
+/* Column shade overlay when a day has all-day tasks.
+   We use a box-shadow inset on the col so the block-cell backgrounds show through. */
+.pm-weekly-col--has-allday {
+  background: rgba(100, 110, 200, 0.04);
+  outline: 1px solid rgba(100, 110, 200, 0.12);
+  outline-offset: -1px;
+}
+
 /* Row color-coding — applied to both the label cell and every block cell
    in that row so the tint spans the full width */
 .pm-weekly-block-label[data-block="morning"],
@@ -2460,6 +2477,7 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
 .pm-weekly-card-block-chip-time { font-variant-numeric: tabular-nums; }
 
 /* Per-block chip accent colours matching row tints */
+.pm-weekly-card-block-chip--all-day  { background: rgba(120, 120, 130, 0.12); color: rgba(160, 160, 175, 0.9); }
 .pm-weekly-card-block-chip--morning  { background: rgba(255, 200, 80,  0.12); color: rgba(255, 200, 80,  0.9); }
 .pm-weekly-card-block-chip--afternoon{ background: rgba(255, 140, 50,  0.12); color: rgba(255, 140, 50,  0.9); }
 .pm-weekly-card-block-chip--evening  { background: rgba(110, 90,  200, 0.14); color: rgba(150, 130, 230, 0.95); }
@@ -2492,6 +2510,53 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
   color: var(--pm-danger);
   font-weight: 600;
   margin-left: auto;
+}
+
+/* Condensed card mode — truncate title to 2 lines, expand on hover */
+.pm-weekly-card--condensed .pm-weekly-card-title {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: break-word;
+}
+
+.pm-weekly-card--condensed .pm-weekly-card-time,
+.pm-weekly-card--condensed .pm-weekly-card-footer {
+  display: none;
+}
+
+.pm-weekly-card--condensed:hover .pm-weekly-card-title {
+  display: block;           /* unconstrain clamp */
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+.pm-weekly-card--condensed:hover .pm-weekly-card-time,
+.pm-weekly-card--condensed:hover .pm-weekly-card-footer {
+  display: flex;
+}
+
+/* Nav spacer + filter controls */
+.pm-weekly-nav-spacer {
+  flex: 1;
+}
+
+.pm-weekly-search {
+  width: 130px;
+  font-size: 12px;
+  padding: 3px 8px;
+  height: 26px;
+}
+
+.pm-weekly-condensed-btn {
+  font-size: 11px;
+  padding: 3px 8px;
+}
+
+.pm-weekly-condensed-btn--active {
+  color: var(--pm-accent);
+  border-color: var(--pm-accent);
 }
 
 /* Scrollbars */

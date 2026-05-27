@@ -8,6 +8,7 @@ import { COLOR_MUTED } from '../constants'
 import { getStatusConfig, getPriorityConfig, formatBadgeText } from '../utils'
 import { renderCustomFieldInput } from './CustomFieldInputs'
 import { TaskPickerModal, TagPickerModal } from './PickerModals'
+import { TIME_BLOCKS, DEFAULT_TIME_BLOCK } from '../timeBlocks'
 import { promptText } from '../ui/ModalFactory'
 
 export interface TaskFormFieldsContext {
@@ -398,15 +399,9 @@ export function renderTaskFormFields(container: HTMLElement, ctx: TaskFormFields
   // Time block
   renderPropRow(schedProps, 'Time block', () => {
     const sel = createEl('select', { cls: 'pm-prop-select' })
-    const blocks: { value: string; label: string }[] = [
-      { value: 'flexible', label: '⏱ Flexible' },
-      { value: 'morning',  label: '🌅 Morning'  },
-      { value: 'afternoon',label: '☀️ Afternoon' },
-      { value: 'evening',  label: '🌙 Evening'   }
-    ]
-    for (const b of blocks) {
-      const opt = sel.createEl('option', { value: b.value, text: b.label })
-      if ((task.customFields.time_block ?? 'flexible') === b.value) opt.selected = true
+    for (const b of TIME_BLOCKS) {
+      const opt = sel.createEl('option', { value: b.id, text: `${b.icon} ${b.label}` })
+      if ((task.customFields.time_block ?? DEFAULT_TIME_BLOCK) === b.id) opt.selected = true
     }
     sel.addEventListener('change', () => {
       task.customFields = { ...task.customFields, time_block: sel.value }

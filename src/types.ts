@@ -122,6 +122,7 @@ export interface PMSettings {
   autoSchedule: boolean
   ganttHideDone: boolean
   kanbanShowSubtasks: boolean
+  weeklyCondensed: boolean
 }
 
 // ─── Defaults ────────────────────────────────────────────────────────────────
@@ -152,6 +153,7 @@ export const DEFAULT_SETTINGS: PMSettings = {
   globalTeamMembers: [],
   ganttHideDone: false,
   kanbanShowSubtasks: false,
+  weeklyCondensed: false,
   notificationsEnabled: true,
   notificationLeadDays: 2,
   autoSchedule: true

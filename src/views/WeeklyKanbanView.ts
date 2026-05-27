@@ -1,22 +1,26 @@
 import { Menu } from 'obsidian'
 import type PMPlugin from '../main'
-import { Project, Task } from '../types'
+import { Project, Task, TaskStatus, TaskPriority } from '../types'
 import { today, parsePlainDate, Temporal } from '../dates'
 import { flattenTasks } from '../store/TaskTreeOps'
 import { safeAsync, getStatusConfig, getPriorityConfig, isTaskOverdue, isTerminalStatus } from '../utils'
 import { renderStatusBadge } from '../ui/StatusBadge'
 import { openTaskModal } from '../ui/ModalFactory'
 import { buildTaskContextMenu } from '../ui/TaskContextMenu'
+import { renderFilterDropdown } from '../ui/FilterDropdown'
+import { formatBadgeText } from '../utils'
+import { TimeBlock, TIME_BLOCKS, DEFAULT_TIME_BLOCK, isTimeBlock } from '../timeBlocks'
+import { collectAllAssignees, collectAllTags, collectAllSprints } from '../store'
 import type { SubView } from './SubView'
 
-type TimeBlock = 'morning' | 'afternoon' | 'evening' | 'flexible'
-
-const TIME_BLOCKS: { id: TimeBlock; label: string; icon: string }[] = [
-  { id: 'morning', label: 'Morning', icon: '🌞' },
-  { id: 'afternoon', label: 'Afternoon', icon: '🌻' },
-  { id: 'evening', label: 'Evening', icon: '🌙' },
-  { id: 'flexible', label: 'Flexible', icon: '⏱' }
-]
+interface WeeklyFilter {
+  text: string
+  statuses: TaskStatus[]
+  priorities: TaskPriority[]
+  assignees: string[]
+  tags: string[]
+  sprints: string[]
+}
 
 const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const DAY_NAMES_FULL = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -30,8 +34,7 @@ function getWeekDays(referenceDate: Temporal.PlainDate): Temporal.PlainDate[] {
 
 function getTimeBlock(task: Task): TimeBlock {
   const raw = task.customFields?.time_block
-  if (raw === 'morning' || raw === 'afternoon' || raw === 'evening') return raw
-  return 'flexible'
+  return isTimeBlock(raw) ? raw : DEFAULT_TIME_BLOCK
 }
 
 function getScheduledTime(task: Task): string | null {
@@ -54,6 +57,7 @@ export class WeeklyKanbanView implements SubView {
   private dragSourceBlock: TimeBlock | null = null
   private cleanupFns: (() => void)[] = []
   private weekOffset = 0
+  private filter: WeeklyFilter = { text: '', statuses: [], priorities: [], assignees: [], tags: [], sprints: [] }
 
   constructor(
     private container: HTMLElement,
@@ -73,7 +77,7 @@ export class WeeklyKanbanView implements SubView {
     this.container.empty()
     this.container.addClass('pm-weekly-view')
 
-    // Week navigation bar
+    // Week navigation bar + filter controls
     const nav = this.container.createDiv('pm-weekly-nav')
     this.renderNav(nav)
 
@@ -115,6 +119,121 @@ export class WeeklyKanbanView implements SubView {
       text: `${mon.toLocaleString('en-US', { month: 'short', day: 'numeric' })} – ${sun.toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
     })
     nav.insertBefore(label, nextBtn)
+
+    // Spacer pushes filters + toggle to the right
+    nav.createEl('span', { cls: 'pm-weekly-nav-spacer' })
+
+    // Text search
+    const search = nav.createEl('input', {
+      type: 'text',
+      placeholder: 'Search…',
+      cls: 'pm-filter-input pm-weekly-search'
+    })
+    search.value = this.filter.text
+    search.addEventListener('input', () => {
+      this.filter.text = search.value
+      // Re-render board only (keep nav intact so input doesn't lose focus)
+      const board = this.container.querySelector('.pm-weekly-board') as HTMLElement | null
+      if (board) this.renderBoard(board)
+    })
+
+    // Status filter
+    renderFilterDropdown(
+      nav,
+      'Status',
+      this.filter.statuses,
+      this.plugin.settings.statuses.map((s) => ({ id: s.id, label: formatBadgeText(s.icon, s.label) })),
+      (selected) => { this.filter.statuses = selected; this.render() }
+    )
+
+    // Priority filter
+    renderFilterDropdown(
+      nav,
+      'Priority',
+      this.filter.priorities,
+      this.plugin.settings.priorities.map((p) => ({ id: p.id, label: formatBadgeText(p.icon, p.label) })),
+      (selected) => { this.filter.priorities = selected as TaskPriority[]; this.render() }
+    )
+
+    // Assignee filter (only if data exists)
+    const allAssignees = collectAllAssignees(this.project.tasks)
+    if (allAssignees.length) {
+      renderFilterDropdown(
+        nav,
+        'Assignee',
+        this.filter.assignees,
+        allAssignees.map((a) => ({ id: a, label: a })),
+        (selected) => { this.filter.assignees = selected; this.render() }
+      )
+    }
+
+    // Tag filter (only if data exists)
+    const allTags = collectAllTags(this.project.tasks)
+    if (allTags.length) {
+      renderFilterDropdown(
+        nav,
+        'Tag',
+        this.filter.tags,
+        allTags.map((t) => ({ id: t, label: t })),
+        (selected) => { this.filter.tags = selected; this.render() }
+      )
+    }
+
+    // Sprint filter (only if data exists)
+    const allSprints = collectAllSprints(this.project.tasks)
+    if (allSprints.length) {
+      renderFilterDropdown(
+        nav,
+        'Sprint',
+        this.filter.sprints,
+        allSprints.map((s) => ({ id: s, label: s })),
+        (selected) => { this.filter.sprints = selected; this.render() }
+      )
+    }
+
+    // Condensed / Full toggle — persisted in plugin settings
+    const condensed = this.plugin.settings.weeklyCondensed
+    const condensedBtn = nav.createEl('button', {
+      cls: 'pm-weekly-nav-btn pm-weekly-condensed-btn',
+      text: condensed ? 'Full' : 'Condensed',
+      attr: { 'aria-label': 'Toggle condensed card view' }
+    })
+    if (condensed) condensedBtn.addClass('pm-weekly-condensed-btn--active')
+    condensedBtn.addEventListener('click', () => {
+      this.plugin.settings.weeklyCondensed = !this.plugin.settings.weeklyCondensed
+      this.plugin.saveSettings()
+      this.render()
+    })
+  }
+
+  private applyFilter(tasks: Task[]): Task[] {
+    let result = tasks
+    if (this.filter.text) {
+      const q = this.filter.text.toLowerCase()
+      result = result.filter((t) =>
+        t.title.toLowerCase().includes(q) ||
+        t.status.toLowerCase().includes(q) ||
+        t.tags.some((tag) => tag.toLowerCase().includes(q)) ||
+        t.assignees.some((a) => a.toLowerCase().includes(q)) ||
+        t.sprints.some((s) => s.toLowerCase().includes(q))
+      )
+    }
+    if (this.filter.statuses.length > 0) {
+      result = result.filter((t) => this.filter.statuses.includes(t.status))
+    }
+    if (this.filter.priorities.length > 0) {
+      result = result.filter((t) => this.filter.priorities.includes(t.priority))
+    }
+    if (this.filter.assignees.length > 0) {
+      result = result.filter((t) => t.assignees.some((a) => this.filter.assignees.includes(a)))
+    }
+    if (this.filter.tags.length > 0) {
+      result = result.filter((t) => t.tags.some((tag) => this.filter.tags.includes(tag)))
+    }
+    if (this.filter.sprints.length > 0) {
+      result = result.filter((t) => t.sprints.some((s) => this.filter.sprints.includes(s)))
+    }
+    return result
   }
 
   private renderBoard(board: HTMLElement): void {
@@ -124,27 +243,46 @@ export class WeeklyKanbanView implements SubView {
     const allDays = getWeekDays(ref)
     const todayStr = today().toString()
 
-    // Flatten all tasks and filter to this week
-    const allTasks = flattenTasks(this.project.tasks)
+    // Flatten all tasks (unfiltered for visibility checks, filtered for display)
+    const allTasksRaw = flattenTasks(this.project.tasks)
       .map((ft) => ft.task)
       .filter((t) => !t.archived)
 
-    // Determine which days have tasks (for Sat/Sun conditional display)
+    // Determine which days have tasks (use raw — weekend visibility ignores filters)
+    const tasksByDayRaw = new Map<string, Task[]>()
+    for (const day of allDays) {
+      const dayStr = day.toString()
+      tasksByDayRaw.set(dayStr, allTasksRaw.filter((t) => t.due === dayStr))
+    }
+
+    // Show Mon–Fri always; Sat (idx=5) and Sun (idx=6) shown together if EITHER has tasks
+    const satHasTasks = (tasksByDayRaw.get(allDays[5].toString()) ?? []).length > 0
+    const sunHasTasks = (tasksByDayRaw.get(allDays[6].toString()) ?? []).length > 0
+    const showWeekend = satHasTasks || sunHasTasks
+
+    const visibleDays = allDays.filter((_, idx) => {
+      if (idx < 5) return true
+      return showWeekend
+    })
+
+    const numDayCols = visibleDays.length
+    // Apply dynamic column layout via inline style: label col fixed, day cols share remaining space
+    board.setAttribute(
+      'style',
+      `grid-template-columns: 90px repeat(${numDayCols}, minmax(160px, 1fr)); grid-template-rows: 52px auto auto auto auto auto;`
+    )
+
+    // Filtered task map for rendering
     const tasksByDay = new Map<string, Task[]>()
     for (const day of allDays) {
       const dayStr = day.toString()
-      tasksByDay.set(dayStr, allTasks.filter((t) => t.due === dayStr))
+      const raw = tasksByDayRaw.get(dayStr) ?? []
+      tasksByDay.set(dayStr, this.applyFilter(raw))
     }
-
-    // Show Mon–Fri always; Sat/Sun only if tasks exist
-    const visibleDays = allDays.filter((day, idx) => {
-      if (idx < 5) return true // Mon–Fri
-      return (tasksByDay.get(day.toString()) ?? []).length > 0
-    })
 
     // The board uses CSS grid with shared named row tracks so every column's
     // time-block cells align horizontally regardless of content height.
-    // Row order: [header] [morning] [afternoon] [evening] [flexible]
+    // Row order: [header] [all-day] [morning] [afternoon] [evening] [flexible]
     // The label column occupies column 1; each day occupies one further column.
 
     // Label column — one cell per row track
@@ -163,9 +301,14 @@ export class WeeklyKanbanView implements SubView {
       const isToday = dayStr === todayStr
       const dayIdx = day.dayOfWeek - 1 // 0=Mon
       const tasks = tasksByDay.get(dayStr) ?? []
+      const rawTasks = tasksByDayRaw.get(dayStr) ?? []
 
       const col = board.createDiv('pm-weekly-col')
       if (isToday) col.addClass('pm-weekly-col--today')
+
+      // If this column has any all-day tasks, shade the entire column
+      const hasAllDay = rawTasks.some((t) => getTimeBlock(t) === 'all-day')
+      if (hasAllDay) col.addClass('pm-weekly-col--has-allday')
 
       // Header cell — sits in the shared header row track
       const header = col.createDiv('pm-weekly-day-header')
@@ -180,10 +323,10 @@ export class WeeklyKanbanView implements SubView {
         dateEl.prepend(dot)
       }
 
-      const nonDone = tasks.filter((t) => !isTerminalStatus(t.status, this.plugin.settings.statuses))
-      if (tasks.length > 0) {
+      const nonDone = rawTasks.filter((t) => !isTerminalStatus(t.status, this.plugin.settings.statuses))
+      if (rawTasks.length > 0) {
         header.createEl('span', {
-          text: String(nonDone.length > 0 ? nonDone.length : tasks.length),
+          text: String(nonDone.length > 0 ? nonDone.length : rawTasks.length),
           cls: nonDone.length > 0 ? 'pm-weekly-day-count' : 'pm-weekly-day-count pm-weekly-day-count--done'
         })
       }
@@ -251,6 +394,7 @@ export class WeeklyKanbanView implements SubView {
 
   private renderCard(container: HTMLElement, task: Task): void {
     const card = container.createDiv('pm-weekly-card')
+    if (this.plugin.settings.weeklyCondensed) card.addClass('pm-weekly-card--condensed')
     card.draggable = true
     card.dataset.taskId = task.id
 
