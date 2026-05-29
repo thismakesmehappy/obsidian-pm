@@ -1,4 +1,4 @@
-import { Menu, Platform } from 'obsidian'
+import { Menu } from 'obsidian'
 import type PMPlugin from '../main'
 import { Project, Task, TaskStatus, TaskPriority } from '../types'
 import { today, Temporal } from '../dates'
@@ -22,20 +22,9 @@ interface WeeklyFilter {
   sprints: string[]
 }
 
-// ─── Touch drag state ─────────────────────────────────────────────────────────
-
-interface TouchDragState {
-  task: Task
-  sourceDue: string
-  sourceBlock: TimeBlock
-  clone: HTMLElement       // floating ghost card
-  offsetX: number          // touch point offset within the card
-  offsetY: number
-}
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-const DAY_NAMES      = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const DAY_NAMES = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 function getWeekDays(referenceDate: Temporal.PlainDate): Temporal.PlainDate[] {
   const dow    = referenceDate.dayOfWeek        // 1=Mon … 7=Sun
@@ -62,28 +51,12 @@ function getEstimatedDuration(task: Task): string | null {
   return null
 }
 
-/** Hit-test which block cell is under a point; returns {dayStr, block} or null. */
-function hitTestCell(x: number, y: number): { dayStr: string; block: TimeBlock } | null {
-  const el = document.elementFromPoint(x, y)
-  if (!el) return null
-  const cell = el.closest('.pm-weekly-block-cell') as HTMLElement | null
-  if (!cell) return null
-  const day   = cell.dataset.day
-  const block = cell.dataset.block
-  if (!day || !isTimeBlock(block)) return null
-  return { dayStr: day, block }
-}
-
 // ─── View ─────────────────────────────────────────────────────────────────────
 
 export class WeeklyKanbanView implements SubView {
-  // Mouse drag state
   private dragTask:        Task | null      = null
   private dragSourceDue:   string | null    = null
   private dragSourceBlock: TimeBlock | null = null
-
-  // Touch drag state
-  private touchDrag: TouchDragState | null = null
 
   private cleanupFns: (() => void)[] = []
   private weekOffset = 0
@@ -102,7 +75,6 @@ export class WeeklyKanbanView implements SubView {
   destroy(): void {
     for (const fn of this.cleanupFns) fn()
     this.cleanupFns = []
-    this.cancelTouchDrag()
   }
 
   render(): void {
@@ -362,27 +334,17 @@ export class WeeklyKanbanView implements SubView {
       e.preventDefault()
       cell.removeClass('pm-weekly-drop-target')
       if (!this.dragTask) return
-      await this.commitDrop(this.dragTask, this.dragSourceDue, this.dragSourceBlock, dayStr, block)
+
+      const patch: Partial<Task> = {}
+      if (dayStr !== this.dragSourceDue)   patch.due          = dayStr
+      if (block  !== this.dragSourceBlock) patch.customFields = { ...this.dragTask.customFields, time_block: block }
+
+      if (Object.keys(patch).length > 0) {
+        await this.plugin.store.updateTask(this.resolveProject(this.dragTask.id), this.dragTask.id, patch)
+        await this.onRefresh()
+      }
       this.dragTask = this.dragSourceDue = this.dragSourceBlock = null
     }))
-  }
-
-  // ─── Shared drop commit ───────────────────────────────────────────────────
-
-  private async commitDrop(
-    task:        Task,
-    sourceDue:   string | null,
-    sourceBlock: TimeBlock | null,
-    targetDue:   string,
-    targetBlock: TimeBlock
-  ): Promise<void> {
-    const patch: Partial<Task> = {}
-    if (targetDue   !== sourceDue)   patch.due          = targetDue
-    if (targetBlock !== sourceBlock) patch.customFields = { ...task.customFields, time_block: targetBlock }
-    if (Object.keys(patch).length > 0) {
-      await this.plugin.store.updateTask(this.resolveProject(task.id), task.id, patch)
-      await this.onRefresh()
-    }
   }
 
   // ─── Card ─────────────────────────────────────────────────────────────────
@@ -437,7 +399,7 @@ export class WeeklyKanbanView implements SubView {
       if (task.priority === 'medium' || task.priority === 'low') dot.addClass('pm-priority-dot--dim')
     }
 
-    // ── Mouse drag ──
+    // ── Drag (mouse / pointer only) ──
     card.addEventListener('dragstart', () => {
       this.dragTask        = task
       this.dragSourceDue   = task.due
@@ -450,87 +412,16 @@ export class WeeklyKanbanView implements SubView {
       card.removeClass('pm-dragging')
     })
 
-    // ── Touch drag ──
-    card.addEventListener('touchstart', (e: TouchEvent) => {
-      // Single-finger only; two-finger gestures (scroll/zoom) pass through
-      if (e.touches.length !== 1) return
-      const touch = e.touches[0]
-      const box   = card.getBoundingClientRect()
-
-      const clone = card.cloneNode(true) as HTMLElement
-      clone.addClass('pm-weekly-card--touch-clone')
-      clone.setCssStyles({
-        width:  `${box.width}px`,
-        left:   `${touch.clientX - (touch.clientX - box.left)}px`,
-        top:    `${touch.clientY - (touch.clientY - box.top)}px`,
-      })
-      document.body.appendChild(clone)
-
-      this.touchDrag = {
-        task,
-        sourceDue:   task.due,
-        sourceBlock: getTimeBlock(task),
-        clone,
-        offsetX: touch.clientX - box.left,
-        offsetY: touch.clientY - box.top,
-      }
-      card.addClass('pm-weekly-card--dragging')
-      // Don't preventDefault here — let the browser decide; we prevent on touchmove
-    }, { passive: true })
-
-    card.addEventListener('touchmove', (e: TouchEvent) => {
-      if (!this.touchDrag || e.touches.length !== 1) return
-      e.preventDefault()               // prevent page scroll while dragging
-      const touch = e.touches[0]
-      this.touchDrag.clone.setCssStyles({
-        left: `${touch.clientX - this.touchDrag.offsetX}px`,
-        top:  `${touch.clientY - this.touchDrag.offsetY}px`,
-      })
-      // Highlight the cell under the finger
-      const hit = hitTestCell(touch.clientX, touch.clientY)
-      this.container.querySelectorAll('.pm-weekly-drop-target')
-        .forEach((el) => el.removeClass('pm-weekly-drop-target'))
-      if (hit) {
-        const targetCell = this.container.querySelector(
-          `.pm-weekly-block-cell[data-day="${hit.dayStr}"][data-block="${hit.block}"]`
-        )
-        targetCell?.addClass('pm-weekly-drop-target')
-      }
-    }, { passive: false })
-
-    card.addEventListener('touchend', safeAsync(async (e: TouchEvent) => {
-      if (!this.touchDrag) return
-      const touch    = e.changedTouches[0]
-      const state    = this.touchDrag
-      this.cancelTouchDrag()
-      card.removeClass('pm-weekly-card--dragging')
-      this.container.querySelectorAll('.pm-weekly-drop-target')
-        .forEach((el) => el.removeClass('pm-weekly-drop-target'))
-
-      const hit = hitTestCell(touch.clientX, touch.clientY)
-      if (hit) {
-        await this.commitDrop(state.task, state.sourceDue, state.sourceBlock, hit.dayStr, hit.block)
-      }
-    }))
-
-    // ── Condensed tap-to-expand (touch devices) ──
+    // ── Condensed tap-to-expand (touch) ──
     if (this.plugin.settings.weeklyCondensed) {
       card.addEventListener('touchend', (e: TouchEvent) => {
-        // Only toggle expand if this wasn't a drag (clone gone means drag completed)
-        if (this.touchDrag) return
         e.stopPropagation()
         card.toggleClass('pm-weekly-card--expanded', !card.hasClass('pm-weekly-card--expanded'))
       })
     }
 
     // ── Click to open modal ──
-    // On touch we still get a click after touchend; guard against it if a drag just finished
-    card.addEventListener('click', (e) => {
-      if (card.hasClass('pm-weekly-card--condensed') && !card.hasClass('pm-weekly-card--expanded')) {
-        // On touch, single tap expands; second tap opens modal — handled above via touchend class toggle.
-        // On desktop (pointer: fine), hover already expands, so click always opens.
-        if (Platform.isMobile) return
-      }
+    card.addEventListener('click', () => {
       openTaskModal(this.plugin, this.resolveProject(task.id), {
         task,
         onSave: safeAsync(async () => { await this.onRefresh() })
@@ -553,15 +444,7 @@ export class WeeklyKanbanView implements SubView {
     })
   }
 
-  // ─── Touch drag helpers ───────────────────────────────────────────────────
-
-  private cancelTouchDrag(): void {
-    if (!this.touchDrag) return
-    this.touchDrag.clone.remove()
-    this.touchDrag = null
-  }
-
-  // ─── Mouse drag helpers ───────────────────────────────────────────────────
+  // ─── Drag helpers ────────────────────────────────────────────────────────
 
   private getDragAfterElement(container: HTMLElement, y: number): Element | null {
     const cards = Array.from(

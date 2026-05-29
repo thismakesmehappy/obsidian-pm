@@ -2461,10 +2461,9 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
   cursor: pointer;
   overflow: hidden;
   transition: box-shadow 0.15s, border-color 0.15s;
-  /* Prevent iOS callout / text selection during long-press drag */
+  /* Prevent text selection on long-press (iOS) */
   -webkit-user-select: none;
   user-select: none;
-  touch-action: pan-y;       /* allow vertical scroll unless we take over   */
 }
 
 /* Hover effect only on true pointer devices */
@@ -2479,17 +2478,6 @@ body.pm-resize-active, body.pm-resize-active * { cursor: col-resize !important; 
   opacity: 0.35;
 }
 
-/* Ghost card that follows the finger during touch drag */
-.pm-weekly-card--touch-clone {
-  position: fixed;
-  z-index: 9999;
-  pointer-events: none;
-  opacity: 0.8;
-  transform: scale(1.03);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-  border-radius: var(--pm-radius);
-  transition: none;          /* no animation while following finger          */
-}
 
 .pm-weekly-card-status-bar {
   height: 3px;
